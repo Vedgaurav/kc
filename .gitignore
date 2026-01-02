@@ -56,5 +56,6 @@ target/
 
 # Environment
 application-*.yml
+application-*
 .env
 
