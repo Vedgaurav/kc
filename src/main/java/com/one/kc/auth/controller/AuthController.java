@@ -14,25 +14,24 @@ public class AuthController {
 
     private final AuthService authService;
 
-    public AuthController(AuthService authService
-    ) {
+    public AuthController(AuthService authService) {
         this.authService = authService;
     }
 
     @PostMapping("/google")
-    public ResponseEntity<AuthResponse> googleLogin(
-            @RequestBody GoogleLoginRequest request,
-            HttpServletResponse response) {
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest request, HttpServletResponse response) {
 
         return authService.googleLogin(request, response);
-
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(
-            @CookieValue("refresh_token") String refreshToken
-    ) {
-        return authService.refreshtoken(refreshToken);
+    public ResponseEntity<Void> refreshToken(@CookieValue("refresh_token") String refreshToken, HttpServletResponse response) {
+        return authService.refreshToken(refreshToken, response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@CookieValue(value = "refresh_token", required = false) String refreshToken, HttpServletResponse response) {
+        return authService.logout(refreshToken, response);
     }
 }
 
