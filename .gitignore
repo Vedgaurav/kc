@@ -59,3 +59,7 @@ application-*.yml
 application-*
 .env
 
+# Spring Boot environment configs
+src/main/resources/application-*.yml
+src/main/resources/application-*.yaml
+
