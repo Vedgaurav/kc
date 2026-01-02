@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class UserDto {
     private String email;
+    private String countryCode;
     private String phoneNumber;
     private String firstName;
     private String lastName;

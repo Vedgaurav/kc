@@ -33,6 +33,24 @@ dependencies {
 	runtimeOnly 'com.mysql:mysql-connector-j'
 	annotationProcessor 'org.projectlombok:lombok'
 	implementation 'org.mapstruct:mapstruct:1.5.5.Final'
+	implementation "com.googlecode.libphonenumber:libphonenumber:8.13.37"
+	/* ---------------- JWT ---------------- */
+	implementation "org.springframework.boot:spring-boot-starter-security"
+	implementation "org.springframework.boot:spring-boot-starter-oauth2-resource-server"
+	implementation "org.springframework.security:spring-security-oauth2-jose"
+
+
+	/* ---------------- Google Token Verification ---------------- */
+	implementation 'com.google.api-client:google-api-client:2.8.1'
+	// Google OAuth client
+	implementation 'com.google.oauth-client:google-oauth-client:1.39.0'
+
+	// Jackson adapter for Google client
+	implementation 'com.google.http-client:google-http-client-jackson2:1.44.1'
+
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	/* ---------------- Utilities ---------------- */
+	implementation 'org.apache.commons:commons-lang3:3.20.0'
 	annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'

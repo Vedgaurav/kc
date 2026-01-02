@@ -20,6 +20,12 @@ public class LoggerUtils {
         );
     }
 
+    public static void error(Logger logger, String message) {
+        logger.error(
+                LogSanitizer.sanitizeMessage(message)
+        );
+    }
+
 
     private static Object[] sanitizeParams(Object[] params) {
         if (params == null) return null;

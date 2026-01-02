@@ -1,11 +1,13 @@
 package com.one.kc.chanting.entity;
 
-import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.utils.AuditEntity;
-import jakarta.persistence.*;
-import lombok.*;
-
-import java.util.UUID;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 @EqualsAndHashCode(callSuper = true)
 @Data
@@ -16,8 +18,8 @@ import java.util.UUID;
 public class Chanting extends AuditEntity {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    private UUID id;
-
+    private Long chantingId;
+    private Long userId;
+    private Integer chantingRounds;
 }
 

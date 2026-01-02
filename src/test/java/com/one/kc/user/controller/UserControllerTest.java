@@ -5,7 +5,6 @@ import com.one.kc.common.exceptions.ResourceNotFoundException;
 import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.service.UserService;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -95,7 +94,7 @@ class UserControllerTest {
 
         UserDto userDto = getUserDto();
 
-        when(userService.getUserByEmail("test.user@one.com"))
+        when(userService.getUserResponseByEmail("test.user@one.com"))
                 .thenReturn(ResponseEntity.ok(userDto));
 
         mockMvc.perform(get("/api/users/{email}", "test.user@one.com"))
@@ -135,7 +134,7 @@ class UserControllerTest {
     @Test
     void shouldReturn404WhenUserNotFound() throws Exception {
 
-        when(userService.getUserByEmail("missing@one.com"))
+        when(userService.getUserResponseByEmail("missing@one.com"))
                 .thenThrow(new ResourceNotFoundException("User not found"));
 
         mockMvc.perform(get("/api/users/{email}", "missing@one.com"))

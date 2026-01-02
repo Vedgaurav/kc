@@ -120,25 +120,25 @@ class UserServiceTest {
     // -------------------------
 
     @Test
-    void getUserByEmail_success() {
+    void getUserResponseByEmail_success() {
         when(userRepository.findByEmail("test@one.com"))
                 .thenReturn(Optional.of(user));
         when(userMapper.toDto(user)).thenReturn(userDto);
 
         ResponseEntity<UserDto> response =
-                userService.getUserByEmail("test@one.com");
+                userService.getUserResponseByEmail("test@one.com");
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("test@one.com", response.getBody().getEmail());
     }
 
     @Test
-    void getUserByEmail_notFound() {
+    void getUserResponseByEmail_notFound() {
         when(userRepository.findByEmail("test@one.com"))
                 .thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class,
-                () -> userService.getUserByEmail("test@one.com"));
+                () -> userService.getUserResponseByEmail("test@one.com"));
     }
 
     // -------------------------

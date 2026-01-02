@@ -4,6 +4,7 @@ import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceAlreadyExistsException;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
 import com.one.kc.common.utils.LoggerUtils;
+import com.one.kc.common.utils.PhoneNumberUtils;
 import com.one.kc.common.utils.ResponseEntityUtils;
 import com.one.kc.common.utils.SnowflakeIdGenerator;
 import com.one.kc.user.dto.UserDto;
@@ -11,13 +12,14 @@ import com.one.kc.user.entity.User;
 import com.one.kc.user.mapper.UserMapper;
 import com.one.kc.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import static org.springframework.data.jpa.domain.AbstractPersistable_.id;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
@@ -54,16 +56,18 @@ public class UserService {
      */
     public ResponseEntity<UserDto> createUser(UserDto userDto) {
 
-        if (userDto != null && StringUtils.hasText(userDto.getEmail())) {
+        if (userDto != null && StringUtils.isNotBlank(userDto.getEmail())) {
 
             if (userRepository.existsByEmail(userDto.getEmail())) {
                 throw new ResourceAlreadyExistsException(
                         "User already exists with email: " + userDto.getEmail());
             }
 
+            String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
             User user = userMapper.toEntity(userDto);
-            user.setId(idGenerator.nextId());
+            user.setUserId(idGenerator.nextId());
             user.setStatus(UserStatus.ACTIVE);
+            user.setPhoneNumber(e164PhoneNumber);
 
             User userSaved = userRepository.save(user);
 
@@ -113,13 +117,23 @@ public class UserService {
      * @return {@link UserDto} for the requested user
      * @throws ResourceNotFoundException if user is not found
      */
-    public ResponseEntity<UserDto> getUserByEmail(String email) {
+    public ResponseEntity<UserDto> getUserResponseByEmail(String email) {
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "User not found with email: " + email));
 
         return ResponseEntity.ok(userMapper.toDto(user));
+    }
+
+    public Optional<User> getUserFromEmail(String email){
+        if(StringUtils.isBlank(email)) return Optional.empty();
+        return userRepository.findByEmail(email);
+    }
+
+    public Optional<User> getUserById(Long userId){
+        if(userId == null) return Optional.empty();
+        return userRepository.findByUserId(userId);
     }
 
     /**
@@ -171,5 +185,16 @@ public class UserService {
         LoggerUtils.info(logger, "User Deleted with id: {}", id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Find all users
+     * @return List<UserDto>
+     */
+    public ResponseEntity<List<UserDto>> getAllUsers() {
+        List<User> userList = userRepository.findAll();
+
+        List<UserDto> userDtoList =  userList.stream().map(userMapper::toDto).toList();
+        return ResponseEntity.ok(userDtoList);
     }
 }

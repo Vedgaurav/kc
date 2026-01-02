@@ -16,7 +16,7 @@ import java.util.UUID;
 public class User extends AuditEntity {
 
     @Id
-    private Long id;
+    private Long userId;
     @Column(nullable = false, unique = true)
     private String email;
     @Column(nullable = false)
