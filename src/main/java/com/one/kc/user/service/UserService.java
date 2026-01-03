@@ -3,6 +3,7 @@ package com.one.kc.user.service;
 import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceAlreadyExistsException;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
+import com.one.kc.common.exceptions.UserFacingException;
 import com.one.kc.common.utils.LoggerUtils;
 import com.one.kc.common.utils.PhoneNumberUtils;
 import com.one.kc.common.utils.ResponseEntityUtils;
@@ -16,9 +17,14 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
+import java.security.Principal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -131,7 +137,7 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public Optional<User> getUserById(Long userId){
+    public Optional<User> findByUserId(Long userId){
         if(userId == null) return Optional.empty();
         return userRepository.findByUserId(userId);
     }
@@ -197,4 +203,21 @@ public class UserService {
         List<UserDto> userDtoList =  userList.stream().map(userMapper::toDto).toList();
         return ResponseEntity.ok(userDtoList);
     }
+
+    public ResponseEntity<UserDto> getUserFromAuth(Authentication authentication) {
+
+        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
+
+            Jwt jwt = jwtAuth.getToken();
+
+            UserDto userDto = new UserDto();
+            userDto.setEmail(jwt.getClaimAsString("email"));
+            userDto.setFirstName(jwt.getClaimAsString("firstName"));
+            userDto.setLastName(jwt.getClaimAsString("lastName"));
+
+            return ResponseEntity.ok(userDto);
+        }
+        throw new UserFacingException("Unauthorized User");
+    }
+
 }

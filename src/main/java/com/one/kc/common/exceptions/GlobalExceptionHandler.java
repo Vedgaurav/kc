@@ -1,6 +1,5 @@
 package com.one.kc.common.exceptions;
 
-
 import com.one.kc.common.dto.ErrorResponseDto;
 import com.one.kc.common.utils.LoggerUtils;
 import org.slf4j.Logger;
@@ -29,7 +28,7 @@ public class GlobalExceptionHandler {
         // Optional: log internally
         LoggerUtils.error(logger, resourceAlreadyExistsException.toString());
 
-        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.CONFLICT.value()).error("Conflict").message(resourceAlreadyExistsException.getMessage()).build(), HttpStatus.CONFLICT);
+        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.CONFLICT.value()).errorMessage(resourceAlreadyExistsException.getMessage()).build(), HttpStatus.CONFLICT);
 
     }
 
@@ -39,7 +38,7 @@ public class GlobalExceptionHandler {
         // Optional: log internally
         LoggerUtils.error(logger, resourceNotFoundException.toString());
 
-        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.NOT_FOUND.value()).error("Not Found").message(resourceNotFoundException.getMessage()).build(), HttpStatus.NOT_FOUND);
+        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.NOT_FOUND.value()).errorMessage(resourceNotFoundException.getMessage()).build(), HttpStatus.NOT_FOUND);
 
     }
 
@@ -75,6 +74,12 @@ public class GlobalExceptionHandler {
         ex.printStackTrace();
 
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    @ExceptionHandler(UserFacingException.class)
+    public ResponseEntity<ErrorResponseDto> handleUserFacingException(UserFacingException userFacingException){
+        logger.error(userFacingException.getMessage());
+        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.UNAUTHORIZED.value()).errorMessage( userFacingException.getMessage()).errorName(HttpStatus.UNAUTHORIZED.name()).build(), HttpStatus.UNAUTHORIZED);
     }
 }
 

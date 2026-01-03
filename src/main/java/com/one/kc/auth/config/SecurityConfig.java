@@ -3,6 +3,7 @@ package com.one.kc.auth.config;
 import jakarta.servlet.http.Cookie;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
@@ -33,13 +34,29 @@ public class SecurityConfig {
     }
 
     @Bean
+    @Order(1)
+    public SecurityFilterChain authFilterChain(HttpSecurity http) throws Exception {
+
+        http
+                .securityMatcher("/auth/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
+                );
+
+        return http.build();
+    }
+
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors((cors) -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()
                 )
@@ -57,7 +74,7 @@ public class SecurityConfig {
     }
 
     /**
-     *  Extract JWT from HttpOnly cookie instead of Authorization header
+     * Extract JWT from HttpOnly cookie instead of Authorization header
      */
     @Bean
     public BearerTokenResolver cookieBearerTokenResolver() {

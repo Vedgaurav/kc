@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/auth")
 public class AuthController {
 
-
     private final AuthService authService;
 
     public AuthController(AuthService authService) {
@@ -20,7 +19,6 @@ public class AuthController {
 
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleLoginRequest request, HttpServletResponse response) {
-
         return authService.googleLogin(request, response);
     }
 
@@ -33,5 +31,11 @@ public class AuthController {
     public ResponseEntity<Void> logout(@CookieValue(value = "refresh_token", required = false) String refreshToken, HttpServletResponse response) {
         return authService.logout(refreshToken, response);
     }
+
+    @PostMapping("/logoutAll")
+    public ResponseEntity<Void> logoutAll(@CookieValue(value = "refresh_token", required = false) String refreshToken, HttpServletResponse response) {
+        return authService.logoutAll(refreshToken, response);
+    }
+
 }
 

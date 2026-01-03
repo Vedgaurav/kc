@@ -22,6 +22,14 @@ public class JwtUtil {
         this.jwtDecoder = jwtDecoder;
     }
 
+    public static Long getRefreshTokenDays(){
+        return REFRESH_TOKEN_DAYS;
+    }
+
+    public static Long getAccessTokenMinutes(){
+        return ACCESS_TOKEN_MINUTES;
+    }
+
     /* ================= ACCESS TOKEN ================= */
 
     public String generateAccessToken(User user) {
@@ -33,6 +41,8 @@ public class JwtUtil {
                 .expiresAt(now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES))
                 .subject(user.getUserId().toString())
                 .claim("email", user.getEmail())
+                .claim("firstName", user.getFirstName())
+                .claim("lastName", user.getLastName())
                 .claim("type", "access")
                 .build();
 
@@ -65,9 +75,9 @@ public class JwtUtil {
         return jwtDecoder.decode(token);
     }
 
-    public boolean isRefreshToken(String token) {
+    public boolean invalidRefreshToken(String token) {
         Jwt jwt = jwtDecoder.decode(token);
-        return "refresh".equals(jwt.getClaim("type"));
+        return !"refresh".equals(jwt.getClaim("type"));
     }
 
     public boolean isAccessToken(String token) {
