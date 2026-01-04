@@ -22,9 +22,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
-import java.security.Principal;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -135,6 +133,11 @@ public class UserService {
     public Optional<User> getUserFromEmail(String email){
         if(StringUtils.isBlank(email)) return Optional.empty();
         return userRepository.findByEmail(email);
+    }
+
+    public Optional<User> getActiveUserFromEmail(String email){
+        if(StringUtils.isBlank(email)) return Optional.empty();
+        return userRepository.findByEmailAndStatus(email, UserStatus.ACTIVE);
     }
 
     public Optional<User> findByUserId(Long userId){

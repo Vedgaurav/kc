@@ -63,3 +63,5 @@ application-*
 src/main/resources/application-*.yml
 src/main/resources/application-*.yaml
 
+keys/**
+

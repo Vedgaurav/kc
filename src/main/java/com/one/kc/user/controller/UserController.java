@@ -4,7 +4,6 @@ import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,15 +16,6 @@ public class UserController {
 
     public UserController(UserService userService) {
         this.userService = userService;
-    }
-
-    /**
-     * Create a new user.
-     */
-    @PostMapping
-    public ResponseEntity<UserDto> createUser(
-            @RequestBody UserDto userDto, Authentication authentication) {
-        return userService.createUser(userDto);
     }
 
     /**

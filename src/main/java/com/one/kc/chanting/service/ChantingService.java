@@ -1,6 +1,7 @@
 package com.one.kc.chanting.service;
 
 import com.one.kc.chanting.dto.ChantingDto;
+import com.one.kc.chanting.dto.PageResponse;
 import com.one.kc.chanting.entity.Chanting;
 import com.one.kc.chanting.mapper.ChantingMapper;
 import com.one.kc.chanting.repository.ChantingRepository;
@@ -11,10 +12,11 @@ import com.one.kc.common.utils.SnowflakeIdGenerator;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
 import java.util.List;
 
 @Service
@@ -47,10 +49,11 @@ public class ChantingService {
      * @param chantingDto chanting details
      * @return created {@link ChantingDto}
      */
-    public ResponseEntity<ChantingDto> createChanting(ChantingDto chantingDto) {
+    public ResponseEntity<ChantingDto> createChanting(ChantingDto chantingDto, Jwt jwt) {
 
         Chanting chanting = chantingMapper.toEntity(chantingDto);
         chanting.setChantingId(idGenerator.nextId());
+        chanting.setUserId(Long.parseLong(jwt.getSubject()));
 
         Chanting saved = chantingRepository.save(chanting);
 
@@ -111,13 +114,13 @@ public class ChantingService {
      * @param userId chanting identifier
      * @return {@link ChantingDto}
      */
-    public ResponseEntity<List<ChantingDto>> getChantingListByUserId(Long userId) {
+    public ResponseEntity<PageResponse<ChantingDto>> getChantingListByUserId(Long userId, Pageable pageable) {
 
-        List<Chanting> chantingList = chantingRepository.findByUserId(userId);
+        Page<Chanting> chantingListPage = chantingRepository.findByUserId(userId, pageable);
 
-        List<ChantingDto> chantingDtoList = chantingList.stream().map(chantingMapper::toDto).toList();
+        List<ChantingDto> chantingDtoList = chantingListPage.getContent().stream().map(chantingMapper::toDto).toList();
 
-        return ResponseEntity.ok(chantingDtoList);
+        return ResponseEntityUtils.getPaginatedResponse(chantingListPage, chantingDtoList);
     }
 
     /**

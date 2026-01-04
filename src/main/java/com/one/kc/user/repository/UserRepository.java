@@ -1,5 +1,6 @@
 package com.one.kc.user.repository;
 
+import com.one.kc.common.enums.UserStatus;
 import com.one.kc.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -9,4 +10,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     Optional<User> findByEmail(String email);
     Optional<User> findByUserId(Long userId);
+    Optional<User> findByEmailAndStatus(String email, UserStatus userStatus);
 }

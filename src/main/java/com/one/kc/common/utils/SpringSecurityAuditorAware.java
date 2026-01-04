@@ -1,29 +1,38 @@
 package com.one.kc.common.utils;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.AuditorAware;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 @Component("auditorAware")
-public class SpringSecurityAuditorAware implements AuditorAware<String> {
+public class SpringSecurityAuditorAware implements AuditorAware<Long> {
 
     @Override
-    public Optional<String> getCurrentAuditor() {
+    public Optional<Long> getCurrentAuditor() {
 
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null ||
-                !authentication.isAuthenticated() ||
-                authentication instanceof AnonymousAuthenticationToken) {
+        if (!(authentication instanceof JwtAuthenticationToken jwtAuth)) {
             return Optional.empty();
         }
 
-        return Optional.of(authentication.getName());
+        String subject = jwtAuth.getToken().getSubject();
+
+        if (StringUtils.isBlank(subject)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(Long.parseLong(subject));
+        } catch (NumberFormatException ex) {
+            return Optional.empty();
+        }
     }
 }
 

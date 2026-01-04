@@ -1,11 +1,12 @@
 package com.one.kc.auth.service;
 
+import com.one.kc.auth.config.AuthConfigProperties;
 import com.one.kc.auth.dto.AuthResponse;
 import com.one.kc.auth.dto.GoogleLoginRequest;
 import com.one.kc.auth.dto.GoogleUser;
 import com.one.kc.auth.utils.JwtUtil;
+import com.one.kc.auth.utils.RsaKeyProvider;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
-import com.one.kc.common.exceptions.UserFacingException;
 import com.one.kc.user.entity.User;
 import com.one.kc.user.mapper.UserMapper;
 import com.one.kc.user.service.UserService;
@@ -14,7 +15,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -33,23 +33,29 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
     private final RefreshTokenServiceImpl refreshTokenServiceImpl;
+    private final AuthConfigProperties authConfigProperties;
+    private final RsaKeyProvider rsaKeyProvider;
 
     public AuthService(GoogleAuthService googleAuthService,
                        UserService userService,
                        JwtUtil jwtUtil, UserMapper userMapper,
-                       RefreshTokenServiceImpl refreshTokenServiceImpl) {
+                       RefreshTokenServiceImpl refreshTokenServiceImpl,
+                       AuthConfigProperties authConfigProperties,
+                       RsaKeyProvider rsaKeyProvider) {
         this.googleAuthService = googleAuthService;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
         this.userMapper = userMapper;
         this.refreshTokenServiceImpl = refreshTokenServiceImpl;
+        this.authConfigProperties = authConfigProperties;
+        this.rsaKeyProvider = rsaKeyProvider;
     }
 
     public ResponseEntity<AuthResponse> googleLogin(GoogleLoginRequest request, HttpServletResponse response) {
 
         GoogleUser googleUser = googleAuthService.verify(request.getIdToken());
 
-        Optional<User> userOptional = userService.getUserFromEmail(googleUser.getEmail());
+        Optional<User> userOptional = userService.getActiveUserFromEmail(googleUser.getEmail());
 
         if (userOptional.isEmpty()) {
             return ResponseEntity.badRequest().body(AuthResponse.builder().errorMessage(googleUser.getEmail()).build());
@@ -57,8 +63,9 @@ public class AuthService {
 
         User user = userOptional.get();
 
-        String accessToken = jwtUtil.generateAccessToken(user);
-        String refreshToken = jwtUtil.generateRefreshToken(user);
+        String rsaActiveKeyId = rsaKeyProvider.getActiveKeyId();
+        String accessToken = jwtUtil.generateAccessToken(user, rsaActiveKeyId);
+        String refreshToken = jwtUtil.generateRefreshToken(user, rsaActiveKeyId);
 
         String hashed = getHashed(refreshToken);
         refreshTokenServiceImpl.save(user.getUserId(), hashed, Duration.ofDays(JwtUtil.getRefreshTokenDays()));
@@ -107,7 +114,8 @@ public class AuthService {
         // 4. Rotate refresh token
         refreshTokenServiceImpl.delete(hashedOld, userId);
 
-        String newRefreshToken = jwtUtil.generateRefreshToken(user);
+        String activeKeyId = rsaKeyProvider.getActiveKeyId();
+        String newRefreshToken = jwtUtil.generateRefreshToken(user, activeKeyId);
         String hashedNew = getHashed(newRefreshToken);
 
         refreshTokenServiceImpl.save(
@@ -117,16 +125,16 @@ public class AuthService {
         );
 
 
-        String newAccessToken = jwtUtil.generateAccessToken(user);
+        String newAccessToken = jwtUtil.generateAccessToken(user, activeKeyId);
         setCookiesWithTokens(response, newAccessToken, newRefreshToken);
 
         return ResponseEntity.ok().build();
     }
 
-    private static @NonNull ResponseCookie getResponseCookie(String access_token, String newAccessToken, String path, long maxAgeSeconds) {
+    private @NonNull ResponseCookie getResponseCookie(String access_token, String newAccessToken, String path, long maxAgeSeconds) {
         return ResponseCookie.from(access_token, newAccessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(authConfigProperties.getToken().isSecure())
                 .sameSite(LAX)
                 .path(path)
                 .maxAge(maxAgeSeconds)
@@ -148,7 +156,7 @@ public class AuthService {
     private void deleteCookie(HttpServletResponse response, String name) {
         Cookie cookie = new Cookie(name, null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // true in prod (HTTPS)
+        cookie.setSecure(authConfigProperties.getToken().isSecure()); // true in prod (HTTPS)
         cookie.setPath("/");
         cookie.setMaxAge(0); // DELETE
         response.addCookie(cookie);
@@ -169,17 +177,5 @@ public class AuthService {
         deleteCookie(response, REFRESH_TOKEN);
 
         return ResponseEntity.ok().build();
-    }
-
-    public ResponseEntity<AuthResponse> getAuth(String refreshToken) {
-        if (refreshToken != null) {
-            Long userId = jwtUtil.extractUserId(refreshToken);
-            Optional<User> userOptional = userService.findByUserId(userId);
-            if (userOptional.isPresent()) {
-                return ResponseEntity.ok(AuthResponse.builder().userDto(userMapper.toDto(userOptional.get())).build());
-            }
-            throw new UserFacingException("Unauthorized User");
-        }
-        throw new UserFacingException("Unauthorized User");
     }
 }

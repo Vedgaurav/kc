@@ -24,7 +24,7 @@ public class AuditEntity {
     @LastModifiedDate
     private LocalDateTime chgTime;
     @CreatedBy
-    private String addBy;
+    private Long addBy;
     @LastModifiedBy
-    private String chgBy;
+    private Long chgBy;
 }

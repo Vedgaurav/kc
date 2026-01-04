@@ -1,6 +1,7 @@
 package com.one.kc.auth.utils;
 
 import com.one.kc.user.entity.User;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
 import org.springframework.stereotype.Component;
 
@@ -22,38 +23,44 @@ public class JwtUtil {
         this.jwtDecoder = jwtDecoder;
     }
 
-    public static Long getRefreshTokenDays(){
+    public static Long getRefreshTokenDays() {
         return REFRESH_TOKEN_DAYS;
     }
 
-    public static Long getAccessTokenMinutes(){
+    public static Long getAccessTokenMinutes() {
         return ACCESS_TOKEN_MINUTES;
     }
 
     /* ================= ACCESS TOKEN ================= */
 
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(User user, String activeKeyId) {
         Instant now = Instant.now();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("one-kc")
                 .issuedAt(now)
-                .expiresAt(now.plus(ACCESS_TOKEN_MINUTES, ChronoUnit.MINUTES))
+                .expiresAt(now.plus(1, ChronoUnit.MINUTES))
                 .subject(user.getUserId().toString())
                 .claim("email", user.getEmail())
                 .claim("firstName", user.getFirstName())
                 .claim("lastName", user.getLastName())
                 .claim("type", "access")
+                .claim("aud", "one-kc-web")
                 .build();
 
         return jwtEncoder.encode(
-                JwtEncoderParameters.from(claims)
+                JwtEncoderParameters.from(
+                        JwsHeader.with(SignatureAlgorithm.RS256)
+                                .keyId(activeKeyId)
+                                .build(),
+                        claims
+                )
         ).getTokenValue();
     }
 
     /* ================= REFRESH TOKEN ================= */
 
-    public String generateRefreshToken(User user) {
+    public String generateRefreshToken(User user, String activeKeyId) {
         Instant now = Instant.now();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
@@ -62,10 +69,16 @@ public class JwtUtil {
                 .expiresAt(now.plus(REFRESH_TOKEN_DAYS, ChronoUnit.DAYS))
                 .subject(user.getUserId().toString())
                 .claim("type", "refresh")
+                .claim("aud", "one-kc-web")
                 .build();
 
         return jwtEncoder.encode(
-                JwtEncoderParameters.from(claims)
+                JwtEncoderParameters.from(
+                        JwsHeader.with(() -> "RS256")
+                                .keyId(activeKeyId)
+                                .build(),
+                        claims
+                )
         ).getTokenValue();
     }
 
@@ -92,4 +105,10 @@ public class JwtUtil {
     public Map<String, Object> extractClaims(String token) {
         return jwtDecoder.decode(token).getClaims();
     }
+
+    public static Long getUserId(Jwt jwt){
+        return Long.parseLong(jwt.getSubject());
+    }
+
+
 }
