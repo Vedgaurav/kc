@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ChantingDto {
+    private String chantingId;
     private Integer chantingRounds;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate chantingDate;

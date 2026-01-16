@@ -1,5 +1,6 @@
 package com.one.kc.user.service;
 
+import com.one.kc.auth.utils.JwtUtil;
 import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceAlreadyExistsException;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
@@ -35,10 +36,11 @@ public class UserService {
     private final SnowflakeIdGenerator idGenerator;
 
 
-
-    public UserService(UserRepository userRepository,
-                       UserMapper userMapper,
-                       SnowflakeIdGenerator idGenerator) {
+    public UserService(
+            UserRepository userRepository,
+            UserMapper userMapper,
+            SnowflakeIdGenerator idGenerator
+    ) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.idGenerator = idGenerator;
@@ -93,55 +95,78 @@ public class UserService {
      * - Persists changes in a transactional context
      * </p>
      *
-     * @param email user identifier
+     * @param jwt     authentication token
      * @param userDto updated user details
      * @return updated {@link UserDto}
      * @throws ResourceNotFoundException if user does not exist
      */
     @Transactional
-    public ResponseEntity<UserDto> updateUser(String email, UserDto userDto) {
+    public ResponseEntity<UserDto> updateUser(
+            UserDto userDto,
+            Jwt jwt
+    ) {
 
-        User existingUser = userRepository.findByEmail(email)
+        Long userId = JwtUtil.getUserId(jwt);
+        User existingUser = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with email: " + email));
+                        "User not found "));
 
         userMapper.updateEntityFromDto(userDto, existingUser);
 
+        String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
+        existingUser.setPhoneNumber(e164PhoneNumber);
         User updatedUser = userRepository.save(existingUser);
 
-        LoggerUtils.info(logger, "User Updated: {}", updatedUser.getEmail());
+        UserDto userDtoResponse = userMapper.toDto(updatedUser);
+        setPhoneParts(updatedUser, userDtoResponse);
 
-        return ResponseEntity.ok(userMapper.toDto(updatedUser));
+        LoggerUtils.info(logger, "User Updated ");
+
+        return ResponseEntity.ok(userDtoResponse);
     }
 
     /**
      * Retrieves a user by email.
      *
-     * @param email unique email address of the user
+     * @param jwt authentication token
      * @return {@link UserDto} for the requested user
      * @throws ResourceNotFoundException if user is not found
      */
-    public ResponseEntity<UserDto> getUserResponseByEmail(String email) {
+    public ResponseEntity<UserDto> getUser(Jwt jwt) {
 
-        User user = userRepository.findByEmail(email)
+        Long userId = JwtUtil.getUserId(jwt);
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with email: " + email));
+                        "User not found with "));
 
-        return ResponseEntity.ok(userMapper.toDto(user));
+        UserDto userDto = userMapper.toDto(user);
+
+        setPhoneParts(user, userDto);
+
+        return ResponseEntity.ok(userDto);
     }
 
-    public Optional<User> getUserFromEmail(String email){
-        if(StringUtils.isBlank(email)) return Optional.empty();
+    private static void setPhoneParts(
+            User user,
+            UserDto userDto
+    ) {
+        PhoneNumberUtils.PhoneParts phoneParts= PhoneNumberUtils.fromE164(user.getPhoneNumber());
+        userDto.setCountryCode(phoneParts.countryCode());
+        userDto.setPhoneNumber(phoneParts.phoneNumber());
+    }
+
+    public Optional<User> getUserFromEmail(String email) {
+        if (StringUtils.isBlank(email)) return Optional.empty();
         return userRepository.findByEmail(email);
     }
 
-    public Optional<User> getActiveUserFromEmail(String email){
-        if(StringUtils.isBlank(email)) return Optional.empty();
+    public Optional<User> getActiveUserFromEmail(String email) {
+        if (StringUtils.isBlank(email)) return Optional.empty();
         return userRepository.findByEmailAndStatus(email, UserStatus.ACTIVE);
     }
 
-    public Optional<User> findByUserId(Long userId){
-        if(userId == null) return Optional.empty();
+    public Optional<User> findByUserId(Long userId) {
+        if (userId == null) return Optional.empty();
         return userRepository.findByUserId(userId);
     }
 
@@ -198,12 +223,13 @@ public class UserService {
 
     /**
      * Find all users
+     *
      * @return List<UserDto>
      */
     public ResponseEntity<List<UserDto>> getAllUsers() {
         List<User> userList = userRepository.findAll();
 
-        List<UserDto> userDtoList =  userList.stream().map(userMapper::toDto).toList();
+        List<UserDto> userDtoList = userList.stream().map(userMapper::toDto).toList();
         return ResponseEntity.ok(userDtoList);
     }
 

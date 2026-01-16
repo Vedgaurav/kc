@@ -1,10 +1,10 @@
 package com.one.kc.chanting.controller;
 
 import com.one.kc.auth.utils.JwtUtil;
+import com.one.kc.chanting.dto.ChantingDashboardResponseDto;
 import com.one.kc.chanting.dto.ChantingDto;
 import com.one.kc.chanting.dto.PageResponse;
 import com.one.kc.chanting.service.ChantingService;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -13,7 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.LocalDate;
 
 /**
  * REST controller for managing Chanting records.
@@ -58,16 +58,16 @@ public class ChantingController {
      * Performs a partial update on the chanting record.
      * </p>
      *
-     * @param chantingId  unique identifier of the chanting record
+     * @param jwt  user auth token
      * @param chantingDto updated chanting details
      * @return updated {@link ChantingDto}
      */
-    @PutMapping("/{chantingId}")
+    @PutMapping
     public ResponseEntity<ChantingDto> updateChanting(
-            @PathVariable Long chantingId,
+            @AuthenticationPrincipal Jwt jwt,
             @RequestBody ChantingDto chantingDto
     ) {
-        return chantingService.updateChanting(chantingId, chantingDto);
+        return chantingService.updateChanting(jwt, chantingDto);
     }
 
     /**
@@ -99,6 +99,21 @@ public class ChantingController {
     ) {
         Long userId = JwtUtil.getUserId(jwt);
         return chantingService.getChantingListByUserId(userId, pageable);
+    }
+
+    /**
+     * Dashboard data for chanting chart & stats
+     */
+    @GetMapping("/dashboard")
+    public ResponseEntity<ChantingDashboardResponseDto> getDashboard(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate
+    ) {
+        Long userId = JwtUtil.getUserId(jwt);
+        return ResponseEntity.ok(
+                chantingService.getDashboard(userId, fromDate, toDate)
+        );
     }
 
 

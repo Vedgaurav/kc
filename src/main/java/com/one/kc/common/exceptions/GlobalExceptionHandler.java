@@ -18,6 +18,12 @@ public class GlobalExceptionHandler {
 
     Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(UserFacingException.class)
+    public ResponseEntity<ErrorResponseDto> handleUserFacingException(UserFacingException userFacingException){
+        logger.error(userFacingException.getMessage());
+        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.UNAUTHORIZED.value()).errorMessage( userFacingException.getMessage()).errorName(HttpStatus.UNAUTHORIZED.name()).build(), HttpStatus.UNAUTHORIZED);
+    }
+
     /**
      * Handle Exceptions
      * Sends only the message, no stack trace.
@@ -76,10 +82,6 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    @ExceptionHandler(UserFacingException.class)
-    public ResponseEntity<ErrorResponseDto> handleUserFacingException(UserFacingException userFacingException){
-        logger.error(userFacingException.getMessage());
-        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.UNAUTHORIZED.value()).errorMessage( userFacingException.getMessage()).errorName(HttpStatus.UNAUTHORIZED.name()).build(), HttpStatus.UNAUTHORIZED);
-    }
+
 }
 

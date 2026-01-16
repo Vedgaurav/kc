@@ -1,5 +1,6 @@
 package com.one.kc.user.dto;
 
+import com.one.kc.common.enums.UserStatus;
 import com.one.kc.user.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,4 +21,6 @@ public class UserDto {
     private LocalDateTime chgTime;
     private String addBy;
     private String chgBy;
+    private UserStatus status;
+    private Integer committedRounds;
 }

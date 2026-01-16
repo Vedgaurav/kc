@@ -4,6 +4,8 @@ import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -21,20 +23,22 @@ public class UserController {
     /**
      * Update an existing user.
      */
-    @PutMapping("/{email}")
+    @PutMapping
     public ResponseEntity<UserDto> updateUser(
-            @PathVariable String email,
-            @RequestBody UserDto userDto) {
-        return userService.updateUser(email, userDto);
+            @RequestBody UserDto userDto,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return userService.updateUser(userDto, jwt);
     }
 
     /**
      * Get user by email.
      */
-    @GetMapping("/{email}")
-    public ResponseEntity<UserDto> getUserByEmail(
-            @PathVariable String email, Authentication authentication) {
-        return userService.getUserResponseByEmail(email);
+    @GetMapping
+    public ResponseEntity<UserDto> getUser(
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return userService.getUser(jwt);
     }
 
     @GetMapping("/auth")
@@ -42,30 +46,30 @@ public class UserController {
         return userService.getUserFromAuth(authentication);
     }
 
-    /**
-     * Get all users.
-     */
-    @GetMapping
-    public ResponseEntity<List<UserDto>> getAllUsers() {
-        return userService.getAllUsers();
-    }
+//    /**
+//     * Get all users.
+//     */
+//    @GetMapping
+//    public ResponseEntity<List<UserDto>> getAllUsers() {
+//        return userService.getAllUsers();
+//    }
 
-    /**
-     * Soft delete user (mark inactive).
-     */
-    @PatchMapping("/{email}/deactivate")
-    public ResponseEntity<Void> softDeleteUser(
-            @PathVariable String email) {
-        return userService.softDeleteUser(email);
-    }
+//    /**
+//     * Soft delete user (mark inactive).
+//     */
+//    @PatchMapping("/deactivate")
+//    public ResponseEntity<Void> softDeleteUser(
+//        ) {
+//        return userService.softDeleteUser(email);
+//    }
 
-    /**
-     * Hard delete user (permanent).
-     */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> hardDeleteUser(
-            @PathVariable Long id) {
-        return userService.hardDeleteUser(id);
-    }
+//    /**
+//     * Hard delete user (permanent).
+//     */
+//    @DeleteMapping("/delete")
+//    public ResponseEntity<Void> hardDeleteUser(
+//            @PathVariable Long id) {
+//        return userService.hardDeleteUser(id);
+//    }
 }
 

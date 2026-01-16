@@ -28,4 +28,5 @@ public class User extends AuditEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
+    private Integer committedRounds;
 }
