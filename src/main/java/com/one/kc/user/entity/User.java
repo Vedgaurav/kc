@@ -5,6 +5,7 @@ import com.one.kc.common.utils.AuditEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @EqualsAndHashCode(callSuper = true)
@@ -29,4 +30,11 @@ public class User extends AuditEntity {
     @Column(nullable = false)
     private UserStatus status = UserStatus.ACTIVE;
     private Integer committedRounds;
+
+    @PrePersist
+    @PreUpdate
+    public void prePersist() {
+        this.lastName = Objects.requireNonNullElse(lastName, "");
+        this.committedRounds = Objects.requireNonNullElse(committedRounds, 0);
+    }
 }
