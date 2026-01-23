@@ -26,14 +26,10 @@ spring:
         jdbc:
           time_zone: UTC
 
-logging:
-  level:
-    root: warn
-
 auth:
   token:
     secure: true
-    same-site: Lax   # ⚠️ Strict breaks Google OAuth
+    same-site: Lax
   google:
     oauth-audience: ${AUTH_GOOGLE_OAUTH_AUDIENCE}
   jwt:
