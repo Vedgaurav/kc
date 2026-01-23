@@ -45,8 +45,8 @@ auth:
     active-key-id: one-kc-dev
     keys:
       - key-id: one-kc-dev
-        public-key-path: ${JWT_PUBLIC_KEY_PATH}
-        private-key-path: ${JWT_PRIVATE_KEY_PATH}
+        public-key-path: ${ONE_JWT_PUBLIC_KEY_PATH}
+        private-key-path: ${ONE_JWT_PRIVATE_KEY_PATH}
 
 app:
   cors:
