@@ -143,7 +143,7 @@ public class SecurityConfig {
 //                        : List.of(origins.split(","))
 //        );
 
-        configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in"));
+        configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
