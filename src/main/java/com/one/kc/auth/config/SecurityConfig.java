@@ -134,14 +134,16 @@ public class SecurityConfig {
     @Bean
     UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+//
+//        String origins = environment.getProperty("app.cors.allowed-origins", "");
 
-        String origins = environment.getProperty("app.cors.allowed-origins", "");
+//        configuration.setAllowedOrigins(
+//                origins.isBlank()
+//                        ? List.of()
+//                        : List.of(origins.split(","))
+//        );
 
-        configuration.setAllowedOrigins(
-                origins.isBlank()
-                        ? List.of()
-                        : List.of(origins.split(","))
-        );
+        configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in"));
 
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
