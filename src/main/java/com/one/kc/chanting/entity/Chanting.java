@@ -1,10 +1,7 @@
 package com.one.kc.chanting.entity;
 
 import com.one.kc.common.utils.AuditEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -18,7 +15,21 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "CHANTING")
+@Table(
+        name = "CHANTING",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_user_date",
+                        columnNames = {"userId", "chantingDate"}
+                )
+        },
+        indexes = {
+                @Index(
+                        name = "idx_chanting_user_date",
+                        columnList = "userId, chantingDate"
+                )
+        }
+)
 public class Chanting extends AuditEntity {
 
     @Id
