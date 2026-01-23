@@ -135,19 +135,16 @@ public class SecurityConfig {
     UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        String[] allowedOrigins = environment.getProperty(
-                "app.cors.allowed-origins",
-                String[].class,
-                new String[]{}
+        String origins = environment.getProperty("app.cors.allowed-origins", "");
+
+        configuration.setAllowedOrigins(
+                origins.isBlank()
+                        ? List.of()
+                        : List.of(origins.split(","))
         );
 
-        configuration.setAllowedOrigins(List.of(allowedOrigins));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of(
-                "Authorization",
-                "Content-Type",
-                "X-Requested-With"
-        ));
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -155,5 +152,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
 }
 
