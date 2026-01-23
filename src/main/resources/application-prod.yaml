@@ -1,0 +1,50 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:mysql://prod-db-host:3306/kc_prod?useSSL=true&requireSSL=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+    hikari:
+      pool-name: KC-PROD-HikariCP
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 60000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+logging:
+  level:
+    root: warn
+
+auth:
+  token:
+    secure: true
+    same-site: Lax   # ⚠️ Strict breaks Google OAuth
+  google:
+    oauth-audience: ${AUTH_GOOGLE_OAUTH_AUDIENCE}
+  jwt:
+    active-key-id: one-kc-prod
+    keys:
+      - key-id: one-kc-prod
+        public-key-path: /etc/keys/jwt-public.pem
+        private-key-path: /etc/keys/jwt-private.pem
+
+app:
+  cors:
+    allowed-origins:
+      - https://sravanakirtan.co.in
