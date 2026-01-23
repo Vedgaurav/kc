@@ -2,11 +2,6 @@ spring:
   config:
     activate:
       on-profile: prod
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: https://accounts.google.com
 
   datasource:
     url: jdbc:mysql://prod-db-host:3306/kc_prod?useSSL=true&requireSSL=true&serverTimezone=UTC
