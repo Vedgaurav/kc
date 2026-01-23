@@ -1,0 +1,54 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/one
+    username: ${ONE_DB_USERNAME}
+    password: ${ONE_DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+logging:
+  level:
+    root: info
+    org.hibernate.SQL: debug
+    org.hibernate.type.descriptor.sql.BasicBinder: trace
+
+snowflake:
+  worker-id: 1
+  datacenter-id: 1
+
+auth:
+  token:
+    secure: true
+    same-site: Lax
+  google:
+    oauth-audience: ${ONE_GOOGLE_OAUTH_AUDIENCE}
+  jwt:
+    active-key-id: one-kc-dev
+    keys:
+      - key-id: one-kc-dev
+        public-key-path: ${JWT_PUBLIC_KEY_PATH}
+        private-key-path: ${JWT_PRIVATE_KEY_PATH}
+
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:5173
