@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ErrorResponseDto {
     private int status;
+    private String errorCode;
     private String errorName;
     private String errorMessage;
 }

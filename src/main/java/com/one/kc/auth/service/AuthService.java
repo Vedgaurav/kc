@@ -6,7 +6,12 @@ import com.one.kc.auth.dto.GoogleLoginRequest;
 import com.one.kc.auth.dto.GoogleUser;
 import com.one.kc.auth.utils.JwtUtil;
 import com.one.kc.auth.utils.RsaKeyProvider;
+import com.one.kc.common.constants.ErrorCodeConstants;
+import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
+import com.one.kc.common.exceptions.UserFacingException;
+import com.one.kc.common.utils.LoggerUtils;
+import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.entity.User;
 import com.one.kc.user.mapper.UserMapper;
 import com.one.kc.user.service.UserService;
@@ -14,6 +19,8 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +32,11 @@ import java.util.Optional;
 @Service
 public class AuthService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+
     public static final String ACCESS_TOKEN = "access_token";
     public static final String REFRESH_TOKEN = "refresh_token";
-    public static final String LAX = "Lax";
+    public static final String COOKIE_PATH = "/";
     private final GoogleAuthService googleAuthService;
     private final UserService userService;
     private final JwtUtil jwtUtil;
@@ -53,34 +62,43 @@ public class AuthService {
 
     public ResponseEntity<AuthResponse> googleLogin(GoogleLoginRequest request, HttpServletResponse response) {
 
-        GoogleUser googleUser = googleAuthService.verify(request.getIdToken());
+        try {
+            GoogleUser googleUser = googleAuthService.verify(request.getIdToken());
 
-        Optional<User> userOptional = userService.getActiveUserFromEmail(googleUser.getEmail());
+            Optional<User> userOpt =
+                    userService.findByGoogleSub(googleUser.getEmail());
 
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.badRequest().body(AuthResponse.builder().errorMessage(googleUser.getEmail()).build());
+            User user;
+
+            user = userOpt.orElseGet(() -> userService.createUser(
+                    UserDto.builder()
+                            .email(googleUser.getEmail())
+                            .firstName(googleUser.getFirstName())
+                            .lastName(googleUser.getLastName())
+                            .status(UserStatus.INACTIVE)
+                            .build()
+            ));
+
+            String rsaActiveKeyId = rsaKeyProvider.getActiveKeyId();
+            String accessToken = jwtUtil.generateAccessToken(user, rsaActiveKeyId);
+            String refreshToken = jwtUtil.generateRefreshToken(user, rsaActiveKeyId);
+
+            String hashed = getHashed(refreshToken);
+            refreshTokenServiceImpl.save(user.getUserId(), hashed, Duration.ofDays(JwtUtil.getRefreshTokenDays()));
+
+            setCookiesWithTokens(response, accessToken, refreshToken);
+            return ResponseEntity.ok(
+                    AuthResponse.builder().userDto(userMapper.toDto(user)).build());
+        }catch (Exception e) {
+            LoggerUtils.error(logger, "Login failed {}", e);
+            throw new UserFacingException("Login failed", ErrorCodeConstants.GOOGLE_LOGIN_ERROR);
         }
-
-        User user = userOptional.get();
-
-        String rsaActiveKeyId = rsaKeyProvider.getActiveKeyId();
-        String accessToken = jwtUtil.generateAccessToken(user, rsaActiveKeyId);
-        String refreshToken = jwtUtil.generateRefreshToken(user, rsaActiveKeyId);
-
-        String hashed = getHashed(refreshToken);
-        refreshTokenServiceImpl.save(user.getUserId(), hashed, Duration.ofDays(JwtUtil.getRefreshTokenDays()));
-
-        setCookiesWithTokens(response, accessToken, refreshToken);
-
-        return ResponseEntity.ok(
-                AuthResponse.builder().userDto(userMapper.toDto(user)).build()
-        );
     }
 
     private void setCookiesWithTokens(HttpServletResponse response, String accessToken, String refreshToken) {
-        ResponseCookie accessCookie = getResponseCookie(ACCESS_TOKEN, accessToken, "/", JwtUtil.getAccessTokenMinutes() * 60);
+        ResponseCookie accessCookie = getResponseCookie(ACCESS_TOKEN, accessToken, COOKIE_PATH, JwtUtil.getAccessTokenMinutes() * 60);
 
-        ResponseCookie refreshCookie = getResponseCookie(REFRESH_TOKEN, refreshToken, "/auth", JwtUtil.getRefreshTokenDays() * 24 * 60 * 60);
+        ResponseCookie refreshCookie = getResponseCookie(REFRESH_TOKEN, refreshToken, COOKIE_PATH, JwtUtil.getRefreshTokenDays() * 24 * 60 * 60);
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
@@ -95,47 +113,52 @@ public class AuthService {
             String refreshToken,
             HttpServletResponse response) {
 
-        if (jwtUtil.invalidRefreshToken(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
-        }
+       try{
+           if (jwtUtil.invalidRefreshToken(refreshToken)) {
+               throw new RuntimeException("Invalid refresh token");
+           }
 
-        // 2. Hash incoming refresh token
-        String hashedOld = getHashed(refreshToken);
+           // 2. Hash incoming refresh token
+           String hashedOld = getHashed(refreshToken);
 
-        // 3. Validate against Redis
-        if (!refreshTokenServiceImpl.exists(hashedOld)) {
-            throw new RuntimeException("Refresh token revoked or expired");
-        }
+           // 3. Validate against Redis
+           if (!refreshTokenServiceImpl.exists(hashedOld)) {
+               throw new RuntimeException("Refresh token revoked or expired");
+           }
 
-        Long userId = jwtUtil.extractUserId(refreshToken);
-        User user = userService.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+           Long userId = jwtUtil.extractUserId(refreshToken);
+           User user = userService.findByUserId(userId)
+                   .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // 4. Rotate refresh token
-        refreshTokenServiceImpl.delete(hashedOld, userId);
+           // 4. Rotate refresh token
+           refreshTokenServiceImpl.delete(hashedOld, userId);
 
-        String activeKeyId = rsaKeyProvider.getActiveKeyId();
-        String newRefreshToken = jwtUtil.generateRefreshToken(user, activeKeyId);
-        String hashedNew = getHashed(newRefreshToken);
+           String activeKeyId = rsaKeyProvider.getActiveKeyId();
+           String newRefreshToken = jwtUtil.generateRefreshToken(user, activeKeyId);
+           String hashedNew = getHashed(newRefreshToken);
 
-        refreshTokenServiceImpl.save(
-                user.getUserId(),
-                hashedNew,
-                Duration.ofDays(JwtUtil.getRefreshTokenDays())
-        );
+           refreshTokenServiceImpl.save(
+                   user.getUserId(),
+                   hashedNew,
+                   Duration.ofDays(JwtUtil.getRefreshTokenDays())
+           );
 
 
-        String newAccessToken = jwtUtil.generateAccessToken(user, activeKeyId);
-        setCookiesWithTokens(response, newAccessToken, newRefreshToken);
+           String newAccessToken = jwtUtil.generateAccessToken(user, activeKeyId);
+           setCookiesWithTokens(response, newAccessToken, newRefreshToken);
 
-        return ResponseEntity.ok().build();
+           return ResponseEntity.ok().build();
+       }catch (Exception e) {
+           LoggerUtils.error(logger, "Refresh token failed {}", e);
+           throw new UserFacingException("Login failed");
+       }
     }
 
     private @NonNull ResponseCookie getResponseCookie(String access_token, String newAccessToken, String path, long maxAgeSeconds) {
         return ResponseCookie.from(access_token, newAccessToken)
                 .httpOnly(true)
                 .secure(authConfigProperties.getToken().isSecure())
-                .sameSite(LAX)
+                .sameSite(authConfigProperties.getToken().getSameSite())
                 .path(path)
                 .maxAge(maxAgeSeconds)
                 .build();
@@ -157,7 +180,7 @@ public class AuthService {
         Cookie cookie = new Cookie(name, null);
         cookie.setHttpOnly(true);
         cookie.setSecure(authConfigProperties.getToken().isSecure()); // true in prod (HTTPS)
-        cookie.setPath("/");
+        cookie.setPath(COOKIE_PATH);
         cookie.setMaxAge(0); // DELETE
         response.addCookie(cookie);
     }

@@ -8,9 +8,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class GoogleUser {
-
     private String email;
-    private String name;
+    private String firstName;
+    private String lastName;
     private String googleId;
 }
 

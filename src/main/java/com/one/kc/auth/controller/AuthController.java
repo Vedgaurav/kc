@@ -41,14 +41,15 @@ public class AuthController {
         return authService.logoutAll(refreshToken, response);
     }
 
-    /**
-     * Create a new user.
-     */
-    @PostMapping("/user")
-    public ResponseEntity<UserDto> createUser(
-            @RequestBody UserDto userDto) {
-        return userService.createUser(userDto);
-    }
+//    /**
+//     * Create a new user.
+//     */
+    // With google login we don't need it now.
+//    @PostMapping("/user")
+//    public ResponseEntity<UserDto> createUser(
+//            @RequestBody UserDto userDto) {
+//        return userService.createUser(userDto);
+//    }
 
 }
 

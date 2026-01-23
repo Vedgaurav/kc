@@ -45,9 +45,14 @@ public class GoogleAuthService {
 
         GoogleIdToken.Payload payload = idToken.getPayload();
 
+        if(!Boolean.TRUE.equals(payload.getEmailVerified())) {
+            throw new RuntimeException("Email Not Verified");
+        }
+
         return new GoogleUser(
                 payload.getEmail(),
-                (String) payload.get("name"),
+                (String) payload.get("given_name"),
+                (String) payload.get("family_name"),
                 payload.getSubject()
         );
     }

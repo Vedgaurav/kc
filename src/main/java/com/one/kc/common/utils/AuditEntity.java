@@ -1,7 +1,9 @@
 package com.one.kc.common.utils;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,11 +22,17 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class AuditEntity {
     @CreatedDate
+    @NotNull
+    @Column(updatable = false)
     private LocalDateTime addTime;
     @LastModifiedDate
+    @NotNull
     private LocalDateTime chgTime;
     @CreatedBy
+    @NotNull
+    @Column(updatable = false)
     private Long addBy;
     @LastModifiedBy
+    @NotNull
     private Long chgBy;
 }

@@ -28,6 +28,8 @@ public class AuthConfigProperties {
     public static class Token {
         @NotNull
         private boolean secure;
+        @NotNull
+        private String sameSite;
     }
 
     @Data

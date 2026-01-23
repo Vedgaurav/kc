@@ -15,6 +15,8 @@ import com.one.kc.user.mapper.UserMapper;
 import com.one.kc.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -60,31 +63,66 @@ public class UserService {
      * @return {@link ResponseEntity} containing created {@link UserDto}
      * @throws ResourceAlreadyExistsException if user already exists with the same email
      */
-    public ResponseEntity<UserDto> createUser(UserDto userDto) {
+    public User createUser(UserDto userDto) {
+        validateUserDto(userDto);
 
-        if (userDto != null && StringUtils.isNotBlank(userDto.getEmail())) {
+        User user = prepareUser(userDto);
 
-            if (userRepository.existsByEmail(userDto.getEmail())) {
-                throw new ResourceAlreadyExistsException(
-                        "User already exists with email: " + userDto.getEmail());
-            }
+        User saved = userRepository.save(user);
 
-            String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
-            User user = userMapper.toEntity(userDto);
-            user.setUserId(idGenerator.nextId());
-            user.setStatus(UserStatus.ACTIVE);
-            user.setPhoneNumber(e164PhoneNumber);
+        LoggerUtils.info(logger, "User created: {}", saved.getEmail());
 
-            User userSaved = userRepository.save(user);
+        return saved;
+    }
 
+    public Optional<User> createUserWithGoogleLogin(UserDto userDto) {
+        User userSaved = validateAndSaveUser(userDto);
+        if(Strings.CS.equals(userDto.getEmail(), userSaved.getEmail())) {
             LoggerUtils.info(logger, "User Created: {}", userSaved.getEmail());
+            return Optional.of(userSaved);
+        }
+        return Optional.empty();
+    }
 
-            return ResponseEntityUtils.getCreatedResponse(
-                    userMapper.toDto(userSaved));
+    private @NonNull User validateAndSaveUser(UserDto userDto) {
+        validateUserDto(userDto);
+        User user = prepareUser(userDto);
+        return userRepository.save(user);
+    }
+
+    private void validateUserDto(UserDto userDto) {
+        if (userDto == null || StringUtils.isBlank(userDto.getEmail())) {
+            throw new UserFacingException("Invalid user");
         }
 
-        return ResponseEntityUtils.badResquest();
+        if (userRepository.existsByEmail(userDto.getEmail())) {
+            throw new ResourceAlreadyExistsException(
+                    "User already exists with email"
+            );
+        }
     }
+
+
+    private @NonNull User prepareUser(UserDto userDto) {
+        User user = userMapper.toEntity(userDto);
+
+        Long userId = idGenerator.nextId();
+        user.setUserId(userId);
+        user.setAddBy(userId);
+        user.setChgBy(userId);
+
+        if (StringUtils.isNotBlank(userDto.getPhoneNumber())) {
+            user.setPhoneNumber(
+                    PhoneNumberUtils.toE164(
+                            userDto.getCountryCode(),
+                            userDto.getPhoneNumber()
+                    )
+            );
+        }
+
+        return user;
+    }
+
 
     /**
      * Updates an existing user using partial update.
@@ -113,8 +151,14 @@ public class UserService {
 
         userMapper.updateEntityFromDto(userDto, existingUser);
 
-        String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
-        existingUser.setPhoneNumber(e164PhoneNumber);
+        if(StringUtils.isNotBlank(userDto.getPhoneNumber()) && StringUtils.isNotBlank(userDto.getCountryCode())) {
+            String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
+            existingUser.setPhoneNumber(e164PhoneNumber);
+            if(existingUser.getStatus() ==  UserStatus.INACTIVE) {
+                existingUser.setStatus(UserStatus.ACTIVE);
+            }
+        }
+
         User updatedUser = userRepository.save(existingUser);
 
         UserDto userDtoResponse = userMapper.toDto(updatedUser);
@@ -150,9 +194,11 @@ public class UserService {
             User user,
             UserDto userDto
     ) {
-        PhoneNumberUtils.PhoneParts phoneParts= PhoneNumberUtils.fromE164(user.getPhoneNumber());
-        userDto.setCountryCode(phoneParts.countryCode());
-        userDto.setPhoneNumber(phoneParts.phoneNumber());
+        if(StringUtils.isNotBlank(userDto.getPhoneNumber())) {
+            PhoneNumberUtils.PhoneParts phoneParts = PhoneNumberUtils.fromE164(user.getPhoneNumber());
+            userDto.setCountryCode(phoneParts.countryCode());
+            userDto.setPhoneNumber(phoneParts.phoneNumber());
+        }
     }
 
     public Optional<User> getUserFromEmail(String email) {
@@ -160,9 +206,9 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public Optional<User> getActiveUserFromEmail(String email) {
+    public Optional<User> findByGoogleSub(String email) {
         if (StringUtils.isBlank(email)) return Optional.empty();
-        return userRepository.findByEmailAndStatus(email, UserStatus.ACTIVE);
+        return userRepository.findByEmail(email);
     }
 
     public Optional<User> findByUserId(Long userId) {

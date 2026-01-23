@@ -28,13 +28,14 @@ public class User extends AuditEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserStatus status = UserStatus.ACTIVE;
+    private UserStatus status = UserStatus.INACTIVE;
     private Integer committedRounds;
 
     @PrePersist
     @PreUpdate
     public void prePersist() {
-        this.lastName = Objects.requireNonNullElse(lastName, "");
-        this.committedRounds = Objects.requireNonNullElse(committedRounds, 0);
+        this.lastName = Objects.requireNonNullElse(this.lastName, "");
+        this.committedRounds = Objects.requireNonNullElse(this.committedRounds, 0);
+        this.phoneNumber = Objects.requireNonNullElse(this.phoneNumber, "");
     }
 }
