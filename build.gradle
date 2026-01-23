@@ -41,12 +41,12 @@ dependencies {
 
 
 	/* ---------------- Google Token Verification ---------------- */
-//	implementation 'com.google.api-client:google-api-client:2.8.1'
-//	// Google OAuth client
-//	implementation 'com.google.oauth-client:google-oauth-client:1.39.0'
-//
-//	// Jackson adapter for Google client
-//	implementation 'com.google.http-client:google-http-client-jackson2:1.44.1'
+	implementation 'com.google.api-client:google-api-client:2.8.1'
+	// Google OAuth client
+	implementation 'com.google.oauth-client:google-oauth-client:1.39.0'
+
+	// Jackson adapter for Google client
+	implementation 'com.google.http-client:google-http-client-jackson2:1.44.1'
 
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 	/* ---------------- Utilities ---------------- */
