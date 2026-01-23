@@ -4,6 +4,8 @@ import com.one.kc.chanting.entity.Chanting;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -22,4 +24,12 @@ public interface ChantingRepository extends JpaRepository<Chanting, Long> {
             LocalDate fromDate,
             LocalDate toDate
     );
+
+    @Query("""
+    select min(c.chantingDate)
+    from Chanting c
+    where c.userId = :userId
+    """)
+    Optional<LocalDate> findMinChantingDateByUserId(@Param("userId") Long userId);
+
 }

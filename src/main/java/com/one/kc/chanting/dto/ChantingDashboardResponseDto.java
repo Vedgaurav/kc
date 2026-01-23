@@ -15,5 +15,5 @@ public class ChantingDashboardResponseDto {
     private Integer idealRounds;
     private Integer currentStreak;
     private BigDecimal averageRounds;
-    private List<ChantingDto> chantingDtoList;
+    private List<DashboardDto> chantingDtoList;
 }

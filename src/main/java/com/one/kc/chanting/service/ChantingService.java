@@ -2,6 +2,7 @@ package com.one.kc.chanting.service;
 
 import com.one.kc.chanting.dto.ChantingDashboardResponseDto;
 import com.one.kc.chanting.dto.ChantingDto;
+import com.one.kc.chanting.dto.DashboardDto;
 import com.one.kc.chanting.dto.PageResponse;
 import com.one.kc.chanting.entity.Chanting;
 import com.one.kc.chanting.mapper.ChantingMapper;
@@ -26,10 +27,12 @@ import org.springframework.util.CollectionUtils;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-
-import static java.util.stream.Collectors.toList;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ChantingService {
@@ -205,79 +208,129 @@ public class ChantingService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Default range → last 30 days
-        LocalDate to = toDate != null ? toDate : LocalDate.now();
-        LocalDate from = fromDate != null ? fromDate : to.minusDays(30);
+        // Resolve end date
+        LocalDate to = Objects.requireNonNullElseGet(toDate, LocalDate::now);
 
+        // Resolve start date
+        LocalDate from;
+            // "All" → start from earliest real chanting date
+        // user has no data
+        from = Objects.requireNonNullElseGet(fromDate, () -> chantingRepository
+                .findMinChantingDateByUserId(userId)
+                .orElse(to));
+
+        // Safety guard
+        if (from.isAfter(to)) {
+            from = to;
+        }
+
+        // Fetch chanting records (uses idx_chanting_user_date)
         List<Chanting> chantingList =
                 chantingRepository.findByUserIdAndChantingDateBetweenOrderByChantingDateAsc(
                         userId, from, to
                 );
 
-        List<ChantingDto> records = chantingList.stream()
-                .map(chantingMapper::toDto
-                )
-                .toList();
+        // Build full time series
+        List<DashboardDto> chantingRecords =
+                buildTimeSeries(chantingList, from, to);
 
         return new ChantingDashboardResponseDto(
                 user.getCommittedRounds(),
                 IDEAL_ROUNDS,
-                calculateStreak(chantingList, user.getCommittedRounds()),
-                calculateAverage(chantingList),
-                records
+                calculateStreak(chantingRecords, user.getCommittedRounds()),
+                calculateAverage(chantingRecords),
+                chantingRecords
         );
     }
 
 
-    private BigDecimal calculateAverage(List<Chanting> list) {
-        if (list == null || list.isEmpty()) {
+    private List<DashboardDto> buildTimeSeries(
+            List<Chanting> chantingList,
+            LocalDate from,
+            LocalDate to
+    ) {
+        // Map existing DB records by date
+        Map<LocalDate, Chanting> chantingMap = chantingList.stream()
+                .collect(Collectors.toMap(
+                        Chanting::getChantingDate,
+                        Function.identity()
+                ));
+
+        List<DashboardDto> result = new ArrayList<>();
+
+        LocalDate current = from;
+        while (!current.isAfter(to)) {
+
+            Chanting chanting = chantingMap.get(current);
+
+            DashboardDto dashboardDto = new DashboardDto();
+            dashboardDto.setChantingDate(current);
+            dashboardDto.setChantingRounds(
+                    chanting != null ? chanting.getChantingRounds() : 0
+            );
+
+            result.add(dashboardDto);
+            current = current.plusDays(1);
+        }
+
+        return result;
+    }
+
+
+
+    private BigDecimal calculateAverage(List<DashboardDto> records) {
+        if (CollectionUtils.isEmpty(records)) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
 
-        
-        BigDecimal sum = list.stream()
-                .map(Chanting::getChantingRounds)
-                .map(BigDecimal::valueOf)
+        BigDecimal sum = records.stream()
+                .map(r -> BigDecimal.valueOf(r.getChantingRounds()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return sum.divide(
-                BigDecimal.valueOf(list.size()),
+                BigDecimal.valueOf(records.size()),
                 2,
                 RoundingMode.HALF_UP
         );
     }
-
-    /**
-     * Streak = consecutive days (ending today or yesterday)
-     * where chanting >= committedRounds
-     */
     private Integer calculateStreak(
-            List<Chanting> list,
-            Integer committed
+            List<DashboardDto> records,
+            Integer committedRounds
     ) {
-
-        if (CollectionUtils.isEmpty(list)) return 0;
+        if (CollectionUtils.isEmpty(records)) {
+            return 0;
+        }
 
         int streak = 0;
         LocalDate expectedDate = LocalDate.now();
 
-        for (int i = list.size() - 1; i >= 0; i--) {
-            Chanting c = list.get(i);
+        // Walk backwards through the time series
+        for (int i = records.size() - 1; i >= 0; i--) {
+            DashboardDto dto = records.get(i);
 
-            if (!c.getChantingDate().equals(expectedDate)
-                    && !c.getChantingDate().equals(expectedDate.minusDays(1))) {
+            // This condition is safe guard if data is not continuous
+            if (streak == 0 &&
+                    !dto.getChantingDate().equals(expectedDate) &&
+                    !dto.getChantingDate().equals(expectedDate.minusDays(1))) {
+                continue;
+            }
+
+            if (!dto.getChantingDate().equals(expectedDate)
+                    && !dto.getChantingDate().equals(expectedDate.minusDays(1))) {
                 break;
             }
 
-            if (c.getChantingRounds() < committed) {
+            if (dto.getChantingRounds() < committedRounds) {
                 break;
             }
 
             streak++;
-            expectedDate = c.getChantingDate().minusDays(1);
+            expectedDate = dto.getChantingDate().minusDays(1);
         }
 
         return streak;
     }
+
+
 }
 
