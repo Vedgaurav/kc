@@ -46,4 +46,4 @@ auth:
 app:
   cors:
     allowed-origins:
-      - https://sravanakirtan.co.in
+      - https://sravankirtan.co.in
