@@ -1,7 +1,6 @@
 package com.one.kc.auth.service;
 
 import com.one.kc.common.exceptions.UserFacingException;
-import org.apache.commons.codec.binary.StringUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;

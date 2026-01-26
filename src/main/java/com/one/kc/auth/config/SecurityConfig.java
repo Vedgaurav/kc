@@ -29,9 +29,13 @@ import java.util.List;
 public class SecurityConfig {
 
     private final Environment environment;
+    private final AuthConfigProperties authConfigProperties;
 
-    public SecurityConfig(Environment environment) {
+    public SecurityConfig(Environment environment,
+                          AuthConfigProperties authConfigProperties
+    ) {
         this.environment = environment;
+        this.authConfigProperties = authConfigProperties;
     }
 
     @Bean
@@ -134,17 +138,8 @@ public class SecurityConfig {
     @Bean
     UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-//
-//        String origins = environment.getProperty("app.cors.allowed-origins", "");
 
-//        configuration.setAllowedOrigins(
-//                origins.isBlank()
-//                        ? List.of()
-//                        : List.of(origins.split(","))
-//        );
-
-        configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
-
+        configuration.setAllowedOrigins(authConfigProperties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
