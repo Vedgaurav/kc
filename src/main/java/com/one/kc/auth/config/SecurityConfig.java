@@ -139,8 +139,8 @@ public class SecurityConfig {
     UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-       // configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
-        configuration.setAllowedOrigins(authConfigProperties.getCors().getAllowedOrigins());
+       configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
+        //configuration.setAllowedOrigins(authConfigProperties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
