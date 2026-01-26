@@ -2,44 +2,58 @@ package com.one.kc.auth.service;
 
 import com.one.kc.auth.config.AuthConfigProperties;
 import com.one.kc.auth.dto.GoogleUser;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 @Service
 public class GoogleAuthService {
 
-    private final JwtDecoder googleJwtDecoder;
+    private final RestTemplate restTemplate = new RestTemplate();
     private final AuthConfigProperties props;
 
-    public GoogleAuthService(
-            @Qualifier("googleJwtDecoder") JwtDecoder googleJwtDecoder,
-            AuthConfigProperties props
-    ) {
-        this.googleJwtDecoder = googleJwtDecoder;
+    public GoogleAuthService(AuthConfigProperties props) {
         this.props = props;
     }
 
     public GoogleUser verify(String idToken) {
 
-        Jwt jwt = googleJwtDecoder.decode(idToken);
+        String url =
+                "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
 
-        // audience check
-        if (!jwt.getAudience().contains(
-                props.getGoogle().getOauthAudience())) {
+        ResponseEntity<Map<String, Object>> response =
+                restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        null,
+                        new ParameterizedTypeReference<>() {}
+                );
+
+        Map<String, Object> claims = response.getBody();
+
+        if (claims == null) {
+            throw new RuntimeException("Invalid Google ID token");
+        }
+
+        if (!props.getGoogle().getOauthAudience()
+                .equals(claims.get("aud"))) {
             throw new RuntimeException("Invalid Google audience");
         }
 
-        if (!Boolean.TRUE.equals(jwt.getClaim("email_verified"))) {
+        if (!Boolean.parseBoolean(
+                String.valueOf(claims.get("email_verified")))) {
             throw new RuntimeException("Google email not verified");
         }
 
         return new GoogleUser(
-                jwt.getClaimAsString("email"),
-                jwt.getClaimAsString("given_name"),
-                jwt.getClaimAsString("family_name"),
-                jwt.getSubject()
+                (String) claims.get("email"),
+                (String) claims.get("given_name"),
+                (String) claims.get("family_name"),
+                (String) claims.get("sub")
         );
     }
 }
