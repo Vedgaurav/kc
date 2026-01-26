@@ -8,6 +8,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import com.one.kc.auth.utils.RsaKeyProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
@@ -41,6 +42,7 @@ public class JwtConfig {
     }
 
     @Bean
+    @Primary
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
         return NimbusJwtDecoder.withJwkSource(jwkSource)
                 .jwsAlgorithm(SignatureAlgorithm.RS256)
