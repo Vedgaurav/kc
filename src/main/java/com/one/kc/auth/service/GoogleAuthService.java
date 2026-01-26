@@ -1,59 +1,47 @@
 package com.one.kc.auth.service;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.gson.GsonFactory;
 import com.one.kc.auth.config.AuthConfigProperties;
 import com.one.kc.auth.dto.GoogleUser;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.util.List;
 
 @Service
 public class GoogleAuthService {
 
-    private final AuthConfigProperties authConfigProperties;
+    private final JwtDecoder googleJwtDecoder;
+    private final AuthConfigProperties props;
 
-    public GoogleAuthService(AuthConfigProperties authConfigProperties){
-        this.authConfigProperties = authConfigProperties;
+    public GoogleAuthService(JwtDecoder jwtDecoder,
+                             AuthConfigProperties props) {
+        this.googleJwtDecoder = NimbusJwtDecoder
+                .withJwkSetUri("https://www.googleapis.com/oauth2/v3/certs")
+                .build();
+        this.props = props;
     }
 
     public GoogleUser verify(String idTokenString) {
 
-        GoogleIdTokenVerifier verifier =
-                new GoogleIdTokenVerifier.Builder(
-                        new NetHttpTransport(),
-                        GsonFactory.getDefaultInstance()
-                )
-                        .setAudience(List.of(authConfigProperties.getGoogle().getOauthAudience()))
-                        .build();
+        Jwt jwt = googleJwtDecoder.decode(idTokenString);
 
-        GoogleIdToken idToken = null;
-        try {
-            idToken = verifier.verify(idTokenString);
-        } catch (GeneralSecurityException | IOException e) {
-            throw new RuntimeException(e);
+        // audience validation
+        if (!jwt.getAudience().contains(
+                props.getGoogle().getOauthAudience())) {
+            throw new RuntimeException("Invalid Google audience");
         }
 
-        if (idToken == null) {
-            throw new RuntimeException("Invalid Google ID Token");
-        }
-
-        GoogleIdToken.Payload payload = idToken.getPayload();
-
-        if(!Boolean.TRUE.equals(payload.getEmailVerified())) {
-            throw new RuntimeException("Email Not Verified");
+        Boolean emailVerified = jwt.getClaim("email_verified");
+        if (!Boolean.TRUE.equals(emailVerified)) {
+            throw new RuntimeException("Email not verified");
         }
 
         return new GoogleUser(
-                payload.getEmail(),
-                (String) payload.get("given_name"),
-                (String) payload.get("family_name"),
-                payload.getSubject()
+                jwt.getClaim("email"),
+                jwt.getClaim("given_name"),
+                jwt.getClaim("family_name"),
+                jwt.getSubject()
         );
     }
 }

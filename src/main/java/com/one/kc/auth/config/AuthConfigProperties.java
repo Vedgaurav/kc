@@ -23,6 +23,8 @@ public class AuthConfigProperties {
     private Google google = new Google();
     @Valid
     private Jwt jwt = new Jwt();
+    @Valid
+    private Cors cors = new Cors();
 
     @Data
     public static class Token {
@@ -30,6 +32,12 @@ public class AuthConfigProperties {
         private boolean secure;
         @NotNull
         private String sameSite;
+    }
+
+    @Data
+    public static class Cors {
+        @NotEmpty
+        private List<String> allowedOrigins = new ArrayList<>();
     }
 
     @Data

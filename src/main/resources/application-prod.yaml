@@ -1,4 +1,9 @@
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://accounts.google.com
   config:
     activate:
       on-profile: prod
@@ -38,8 +43,7 @@ auth:
       - key-id: one-kc-prod
         public-key-path: /etc/keys/jwt-public.pem
         private-key-path: /etc/keys/jwt-private.pem
-
-app:
   cors:
     allowed-origins:
       - https://sravankirtan.co.in
+      - https://www.sravankirtan.co.in
