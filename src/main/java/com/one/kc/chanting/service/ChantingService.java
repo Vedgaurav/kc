@@ -41,6 +41,7 @@ public class ChantingService {
             LoggerFactory.getLogger(ChantingService.class);
 
     private static final int IDEAL_ROUNDS = 16;
+    public static final int BEADS_IN_ONE_ROUND = 108;
 
     private final ChantingRepository chantingRepository;
     private final ChantingMapper chantingMapper;
@@ -138,20 +139,20 @@ public class ChantingService {
         return ResponseEntity.ok(chantingMapper.toDto(updated));
     }
 
-    /**
-     * Retrieves a chanting record by ID.
-     *
-     * @param chantingId chanting identifier
-     * @return {@link ChantingDto}
-     */
-    public ResponseEntity<ChantingDto> getChantingById(Long chantingId) {
-
-        Chanting chanting = chantingRepository.findById(chantingId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Chanting not found with id: " + chantingId));
-
-        return ResponseEntity.ok(chantingMapper.toDto(chanting));
-    }
+//    /**
+//     * Retrieves a chanting record by ID.
+//     *
+//     * @param chantingId chanting identifier
+//     * @return {@link ChantingDto}
+//     */
+//    public ResponseEntity<ChantingDto> getChantingById(Long chantingId) {
+//
+//        Chanting chanting = chantingRepository.findById(chantingId)
+//                .orElseThrow(() -> new ResourceNotFoundException(
+//                        "Chanting not found with id: " + chantingId));
+//
+//        return ResponseEntity.ok(chantingMapper.toDto(chanting));
+//    }
 
     /**
      * Retrieves  chanting records by user email.
@@ -230,17 +231,26 @@ public class ChantingService {
                         userId, from, to
                 );
 
+      int totalRounds = chantingList.stream()
+                .mapToInt(Chanting::getChantingRounds)
+                .sum();
+
         // Build full time series
         List<DashboardDto> chantingRecords =
                 buildTimeSeries(chantingList, from, to);
 
-        return new ChantingDashboardResponseDto(
-                user.getCommittedRounds(),
-                IDEAL_ROUNDS,
-                calculateStreak(chantingRecords, user.getCommittedRounds()),
-                calculateAverage(chantingRecords),
-                chantingRecords
-        );
+
+
+        return  ChantingDashboardResponseDto.builder()
+                        .committedRounds( user.getCommittedRounds())
+                .idealRounds(IDEAL_ROUNDS)
+                .currentStreak(calculateStreak(chantingRecords, user.getCommittedRounds()))
+                .averageRounds(calculateAverage(chantingRecords))
+                .chantingDtoList(chantingRecords)
+                .totalRounds(totalRounds)
+                .totalMahamantras(totalRounds * BEADS_IN_ONE_ROUND)
+                .build();
+
     }
 
 

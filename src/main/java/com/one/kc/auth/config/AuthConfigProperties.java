@@ -26,6 +26,15 @@ public class AuthConfigProperties {
     @Valid
     private Cors cors = new Cors();
 
+    @Valid
+    private Bootstrap bootstrap = new Bootstrap();
+
+    @Data
+    public static class Bootstrap {
+        @NotNull
+        private String superAdminEmail;
+    }
+
     @Data
     public static class Token {
         @NotNull

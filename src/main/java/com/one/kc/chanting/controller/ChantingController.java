@@ -70,16 +70,16 @@ public class ChantingController {
         return chantingService.updateChanting(jwt, chantingDto);
     }
 
-    /**
-     * Retrieves a chanting record by ID.
-     *
-     * @param chantingId unique identifier of the chanting record
-     * @return {@link ChantingDto} for the requested chanting record
-     */
-    @GetMapping("/{chantingId}")
-    public ResponseEntity<ChantingDto> getChantingById(@PathVariable Long chantingId) {
-        return chantingService.getChantingById(chantingId);
-    }
+//    /**
+//     * Retrieves a chanting record by ID.
+//     *
+//     * @param chantingId unique identifier of the chanting record
+//     * @return {@link ChantingDto} for the requested chanting record
+//     */
+//    @GetMapping("/{chantingId}")
+//    public ResponseEntity<ChantingDto> getChantingById(@PathVariable Long chantingId) {
+//        return chantingService.getChantingById(chantingId);
+//    }
 
     /**
      * Retrieves all chanting records by ID.

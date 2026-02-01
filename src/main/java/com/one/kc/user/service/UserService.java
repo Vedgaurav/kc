@@ -1,29 +1,31 @@
 package com.one.kc.user.service;
 
 import com.one.kc.auth.utils.JwtUtil;
+import com.one.kc.common.enums.UserRole;
 import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceAlreadyExistsException;
 import com.one.kc.common.exceptions.ResourceNotFoundException;
 import com.one.kc.common.exceptions.UserFacingException;
 import com.one.kc.common.utils.LoggerUtils;
 import com.one.kc.common.utils.PhoneNumberUtils;
-import com.one.kc.common.utils.ResponseEntityUtils;
 import com.one.kc.common.utils.SnowflakeIdGenerator;
+import com.one.kc.user.dto.FacilitatorListDto;
 import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.entity.User;
 import com.one.kc.user.mapper.UserMapper;
 import com.one.kc.user.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.Strings;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Objects;
@@ -75,21 +77,6 @@ public class UserService {
         return saved;
     }
 
-    public Optional<User> createUserWithGoogleLogin(UserDto userDto) {
-        User userSaved = validateAndSaveUser(userDto);
-        if(Strings.CS.equals(userDto.getEmail(), userSaved.getEmail())) {
-            LoggerUtils.info(logger, "User Created: {}", userSaved.getEmail());
-            return Optional.of(userSaved);
-        }
-        return Optional.empty();
-    }
-
-    private @NonNull User validateAndSaveUser(UserDto userDto) {
-        validateUserDto(userDto);
-        User user = prepareUser(userDto);
-        return userRepository.save(user);
-    }
-
     private void validateUserDto(UserDto userDto) {
         if (userDto == null || StringUtils.isBlank(userDto.getEmail())) {
             throw new UserFacingException("Invalid user");
@@ -110,6 +97,7 @@ public class UserService {
         user.setUserId(userId);
         user.setAddBy(userId);
         user.setChgBy(userId);
+        user.addRole(UserRole.USER);
 
         if (StringUtils.isNotBlank(userDto.getPhoneNumber())) {
             user.setPhoneNumber(
@@ -118,6 +106,16 @@ public class UserService {
                             userDto.getPhoneNumber()
                     )
             );
+        }
+
+        if (StringUtils.isNotBlank(userDto.getFacilitatorId())) {
+            Long facilitatorId = Long.parseLong(userDto.getFacilitatorId());
+            User facilitator = userRepository.findByUserId(facilitatorId)
+                    .orElseThrow(() ->
+                            new ResourceNotFoundException("Facilitator not found")
+                    );
+
+            user.setFacilitator(facilitator);
         }
 
         return user;
@@ -151,12 +149,37 @@ public class UserService {
 
         userMapper.updateEntityFromDto(userDto, existingUser);
 
+        if (CollectionUtils.isEmpty(existingUser.getRoles())) {
+            existingUser.addRole(UserRole.USER);
+        }
+
         if(StringUtils.isNotBlank(userDto.getPhoneNumber()) && StringUtils.isNotBlank(userDto.getCountryCode())) {
             String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
             existingUser.setPhoneNumber(e164PhoneNumber);
             if(existingUser.getStatus() ==  UserStatus.INACTIVE) {
                 existingUser.setStatus(UserStatus.ACTIVE);
             }
+        }
+
+
+        if (StringUtils.isNotBlank(userDto.getFacilitatorId())) {
+            Long facilitatorId = Long.parseLong(userDto.getFacilitatorId());
+            // Skip if same facilitator
+            if ((Objects.isNull(existingUser.getFacilitator() )
+                    || !existingUser.getFacilitator()
+                    .getUserId()
+                    .equals(facilitatorId)) && !facilitatorId.equals(existingUser.getUserId())) {
+
+                User facilitator = userRepository.findByUserId(facilitatorId)
+                        .orElseThrow(() ->
+                                new ResourceNotFoundException("Facilitator not found")
+                        );
+
+                existingUser.setFacilitator(facilitator);
+            }
+        } else {
+            // Optional: allow removal
+            existingUser.setFacilitator(null);
         }
 
         User updatedUser = userRepository.save(existingUser);
@@ -179,16 +202,29 @@ public class UserService {
     public ResponseEntity<UserDto> getUser(Jwt jwt) {
 
         Long userId = JwtUtil.getUserId(jwt);
-        User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with "));
 
-        UserDto userDto = userMapper.toDto(user);
+        User user = userRepository.findByUserIdWithFacilitator(userId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found")
+                );
 
-        setPhoneParts(user, userDto);
+        UserDto dto = userMapper.toDto(user);
+        enrichFacilitator(dto, user);
+        setPhoneParts(user, dto);
 
-        return ResponseEntity.ok(userDto);
+        return ResponseEntity.ok(dto);
     }
+
+    private void enrichFacilitator(UserDto dto, User user) {
+        if (user.getFacilitator() != null) {
+            User f = user.getFacilitator();
+            dto.setFacilitatorId(String.valueOf(f.getUserId()));
+            dto.setFacilitatorName(
+                    f.getFirstName() + " " + f.getLastName()
+            );
+        }
+    }
+
 
     private static void setPhoneParts(
             User user,
@@ -289,10 +325,10 @@ public class UserService {
             userDto.setEmail(jwt.getClaimAsString("email"));
             userDto.setFirstName(jwt.getClaimAsString("firstName"));
             userDto.setLastName(jwt.getClaimAsString("lastName"));
+            userDto.setRoles(jwt.getClaimAsStringList("roles"));
 
             return ResponseEntity.ok(userDto);
         }
         throw new UserFacingException("Unauthorized User");
     }
-
 }

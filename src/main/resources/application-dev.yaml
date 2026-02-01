@@ -36,6 +36,8 @@ snowflake:
   datacenter-id: 1
 
 auth:
+  bootstrap:
+    super-admin-email: ${ONE_SUPER_ADMIN_EMAIL}
   token:
     secure: true
     same-site: Lax

@@ -1,5 +1,6 @@
 package com.one.kc.auth.utils;
 
+import com.one.kc.common.utils.UserUtils;
 import com.one.kc.user.entity.User;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.*;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -44,6 +46,7 @@ public class JwtUtil {
                 .claim("email", user.getEmail())
                 .claim("firstName", user.getFirstName())
                 .claim("lastName", user.getLastName())
+                .claim("roles", UserUtils.extractRoles(user))
                 .claim("type", "access")
                 .claim("aud", "one-kc-web")
                 .build();
@@ -57,6 +60,7 @@ public class JwtUtil {
                 )
         ).getTokenValue();
     }
+
 
     /* ================= REFRESH TOKEN ================= */
 

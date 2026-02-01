@@ -1,12 +1,16 @@
 package com.one.kc.auth.config;
 
+import com.one.kc.common.utils.LoggerUtils;
 import jakarta.servlet.http.Cookie;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -16,6 +20,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
@@ -26,7 +31,10 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
+
+    private static final Logger logger =  LoggerFactory.getLogger(SecurityConfig.class);
 
     private final Environment environment;
     private final AuthConfigProperties authConfigProperties;
@@ -102,10 +110,24 @@ public class SecurityConfig {
         };
     }
 
+//    @Bean
+//    JwtAuthenticationConverter jwtAuthenticationConverter() {
+//        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+//        converter.setPrincipalClaimName("userId"); // or "preferred_username"
+//        return converter;
+//    }
+
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtGrantedAuthoritiesConverter authoritiesConverter =
+                new JwtGrantedAuthoritiesConverter();
+
+        authoritiesConverter.setAuthoritiesClaimName("roles");
+        authoritiesConverter.setAuthorityPrefix("ROLE_"); // Spring expects this
+
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setPrincipalClaimName("userId"); // or "preferred_username"
+        converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
+        converter.setPrincipalClaimName("sub"); // userId
         return converter;
     }
 
@@ -138,9 +160,10 @@ public class SecurityConfig {
     @Bean
     UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        LoggerUtils.info(logger, "Cors Config {}", authConfigProperties.getCors().getAllowedOrigins());
 
-       configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
-        //configuration.setAllowedOrigins(authConfigProperties.getCors().getAllowedOrigins());
+      // configuration.setAllowedOrigins(List.of("https://sravankirtan.co.in", "https://www.sravankirtan.co.in"));
+        configuration.setAllowedOrigins(authConfigProperties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
