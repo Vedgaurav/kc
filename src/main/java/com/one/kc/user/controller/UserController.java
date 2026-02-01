@@ -8,8 +8,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -32,7 +30,7 @@ public class UserController {
     }
 
     /**
-     * Get user by email.
+     * Get user.
      */
     @GetMapping
     public ResponseEntity<UserDto> getUser(

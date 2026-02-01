@@ -21,7 +21,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserFacingException.class)
     public ResponseEntity<ErrorResponseDto> handleUserFacingException(UserFacingException userFacingException){
         LoggerUtils.error(logger, userFacingException.getMessage() +" "+ userFacingException.getErrorCode());
-        return new ResponseEntity<>(ErrorResponseDto.builder().status(HttpStatus.UNAUTHORIZED.value()).errorMessage( userFacingException.getMessage()).errorName(HttpStatus.UNAUTHORIZED.name()).errorCode(userFacingException.getErrorCode()).build(), HttpStatus.UNAUTHORIZED);
+        return new ResponseEntity<>(ErrorResponseDto.builder().status(userFacingException.getStatus().value()).errorMessage( userFacingException.getMessage()).errorName(userFacingException.getStatus().name()).errorCode(userFacingException.getErrorCode()).build(), userFacingException.getStatus());
     }
 
     /**

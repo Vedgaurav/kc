@@ -98,9 +98,9 @@ public class AuthService {
     }
 
     private void setCookiesWithTokens(HttpServletResponse response, String accessToken, String refreshToken) {
-        ResponseCookie accessCookie = getResponseCookie(ACCESS_TOKEN, accessToken, COOKIE_PATH, JwtUtil.getAccessTokenMinutes() * 60);
+        ResponseCookie accessCookie = getResponseCookie(ACCESS_TOKEN, accessToken, JwtUtil.getAccessTokenMinutes() * 60);
 
-        ResponseCookie refreshCookie = getResponseCookie(REFRESH_TOKEN, refreshToken, COOKIE_PATH, JwtUtil.getRefreshTokenDays() * 24 * 60 * 60);
+        ResponseCookie refreshCookie = getResponseCookie(REFRESH_TOKEN, refreshToken, JwtUtil.getRefreshTokenDays() * 24 * 60 * 60);
 
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
@@ -167,12 +167,13 @@ public class AuthService {
        }
     }
 
-    private @NonNull ResponseCookie getResponseCookie(String access_token, String newAccessToken, String path, long maxAgeSeconds) {
+    private @NonNull ResponseCookie getResponseCookie(String access_token, String newAccessToken,
+                                                      long maxAgeSeconds) {
         return ResponseCookie.from(access_token, newAccessToken)
                 .httpOnly(true)
                 .secure(authConfigProperties.getToken().isSecure())
                 .sameSite(authConfigProperties.getToken().getSameSite())
-                .path(path)
+                .path(AuthService.COOKIE_PATH)
                 .maxAge(maxAgeSeconds)
                 .build();
     }

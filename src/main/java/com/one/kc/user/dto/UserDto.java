@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -25,4 +26,7 @@ public class UserDto {
     private String chgBy;
     private UserStatus status;
     private Integer committedRounds;
+    private String facilitatorId;
+    private String facilitatorName;
+    private List<String> roles;
 }

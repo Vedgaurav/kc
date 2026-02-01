@@ -27,6 +27,8 @@ spring:
           time_zone: UTC
 
 auth:
+  bootstrap:
+    super-admin-email: ${ONE_SUPER_ADMIN_EMAIL}
   token:
     secure: true
     same-site: Lax
