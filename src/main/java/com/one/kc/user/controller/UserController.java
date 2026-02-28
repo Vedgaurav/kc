@@ -43,31 +43,5 @@ public class UserController {
     public ResponseEntity<UserDto> getAuth(Authentication authentication) {
         return userService.getUserFromAuth(authentication);
     }
-
-//    /**
-//     * Get all users.
-//     */
-//    @GetMapping
-//    public ResponseEntity<List<UserDto>> getAllUsers() {
-//        return userService.getAllUsers();
-//    }
-
-//    /**
-//     * Soft delete user (mark inactive).
-//     */
-//    @PatchMapping("/deactivate")
-//    public ResponseEntity<Void> softDeleteUser(
-//        ) {
-//        return userService.softDeleteUser(email);
-//    }
-
-//    /**
-//     * Hard delete user (permanent).
-//     */
-//    @DeleteMapping("/delete")
-//    public ResponseEntity<Void> hardDeleteUser(
-//            @PathVariable Long id) {
-//        return userService.hardDeleteUser(id);
-//    }
 }
 

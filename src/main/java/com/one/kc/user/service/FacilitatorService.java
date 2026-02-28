@@ -7,6 +7,8 @@ import com.one.kc.chanting.service.ChantingService;
 import com.one.kc.common.enums.UserRole;
 import com.one.kc.common.utils.PhoneNumberUtils;
 import com.one.kc.common.utils.ResponseEntityUtils;
+import com.one.kc.group.dto.GroupListDto;
+import com.one.kc.group.service.GroupService;
 import com.one.kc.user.dto.FacilitatorListDto;
 import com.one.kc.user.dto.FacilitatorUserListDto;
 import com.one.kc.user.entity.User;
@@ -14,6 +16,7 @@ import com.one.kc.user.repository.UserRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -28,19 +31,21 @@ public class FacilitatorService {
 
     private final UserRepository userRepository;
     private final ChantingService chantingService;
+    private final GroupService groupService;
 
     public FacilitatorService(UserRepository userRepository,
-                              ChantingService chantingService
+                              ChantingService chantingService,
+                              GroupService groupService
     ) {
         this.userRepository = userRepository;
         this.chantingService = chantingService;
+        this.groupService = groupService;
     }
 
     public List<FacilitatorListDto> getFacilitators(Long userId) {
-        List<User> users = userRepository.findActiveUsersByRole(UserRole.FACILITATOR);
+        List<User> users = userRepository.findActiveFacilitatorsInSameGroup(UserRole.FACILITATOR, userId);
 
         return users.stream()
-                .filter(user -> !user.getUserId().equals(userId))
                 .map(user ->
                      FacilitatorListDto.builder()
                             .id(String.valueOf(user.getUserId()))
@@ -48,9 +53,9 @@ public class FacilitatorService {
                             .name(user.getFirstName() + " " + user.getLastName())
                             .build()
                 ).toList();
-
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FACILITATOR')")
     public ResponseEntity<PageResponse<FacilitatorUserListDto>> getFacilitatorUsers(Long userId, Pageable pageable) {
         Page<User> userListPage =  userRepository.findUsersByFacilitator(userId, pageable);
 
@@ -68,6 +73,7 @@ public class FacilitatorService {
           return ResponseEntityUtils.getPaginatedResponse(userListPage, facilitatorUserListDtoList);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FACILITATOR')")
     public ResponseEntity<PageResponse<ChantingDto>> getFacilitatorUserChantingListByUserId(
             Long facilitatorId,
             Long userId,
@@ -84,6 +90,7 @@ public class FacilitatorService {
         return ResponseEntity.badRequest().build();
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FACILITATOR')")
     public ChantingDashboardResponseDto getFacilitatorsUserDashboardDetails(
             Long facilitatorId,
             Long userId,

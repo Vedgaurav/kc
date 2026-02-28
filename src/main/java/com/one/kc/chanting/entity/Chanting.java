@@ -1,43 +1,49 @@
 package com.one.kc.chanting.entity;
 
 import com.one.kc.common.utils.AuditEntity;
+import com.one.kc.user.entity.User;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@EqualsAndHashCode(callSuper = true)
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
 @Entity
 @Table(
-        name = "CHANTING",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_user_date",
-                        columnNames = {"userId", "chantingDate"}
-                )
-        },
+        name = "chanting",
         indexes = {
                 @Index(
-                        name = "idx_chanting_user_date",
-                        columnList = "userId, chantingDate"
+                        name = "idx_chanting_user_time",
+                        columnList = "user_id, chanting_at"
+                ),
+                @Index(
+                        name = "idx_chanting_time",
+                        columnList = "chanting_at"
                 )
         }
 )
+@Getter
+@Setter
+@EqualsAndHashCode(callSuper = true, onlyExplicitlyIncluded = true)
 public class Chanting extends AuditEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @EqualsAndHashCode.Include
     private Long chantingId;
-    private Long userId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "user_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_chanting_user")
+    )
+    private User user;
+
     @Column(nullable = false)
     private Integer chantingRounds;
-    @Column(nullable = false)
-    private LocalDate chantingDate;
-}
 
+    @Column(nullable = false)
+    private Instant chantingAt;
+}

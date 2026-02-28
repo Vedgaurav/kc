@@ -34,9 +34,11 @@ public class AdminUserController {
     @GetMapping
     public ResponseEntity<PageResponse<AdminUserListDto>> getUsers(
             @RequestParam(required = false) String search,
-            @PageableDefault(size = 20) Pageable pageable
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt
     ) {
-        return adminUserService.getUsers(search, pageable);
+        Long adminId = JwtUtil.getUserId(jwt);
+        return adminUserService.getUsers(adminId, search, pageable);
     }
 
     /**

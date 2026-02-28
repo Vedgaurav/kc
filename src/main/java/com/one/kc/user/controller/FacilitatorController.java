@@ -26,7 +26,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/facilitator")
-@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FACILITATOR')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'FACILITATOR', 'USER')")
 public class FacilitatorController {
 
     private final FacilitatorService facilitatorService;
@@ -43,9 +43,7 @@ public class FacilitatorController {
 
     @GetMapping("/users")
     public ResponseEntity<PageResponse<FacilitatorUserListDto>> getFacilitatorsUsers(@AuthenticationPrincipal Jwt jwt, @PageableDefault(
-            page = 0,
-            size = 10,
-            sort = "chantingDate",
+            sort = "chantingAt",
             direction = Sort.Direction.DESC
     )
     Pageable pageable) {
@@ -58,9 +56,7 @@ public class FacilitatorController {
             @PathVariable Long userId,
             @AuthenticationPrincipal Jwt jwt,
             @PageableDefault(
-            page = 0,
-            size = 10,
-            sort = "chantingDate",
+                    sort = "chantingDate",
             direction = Sort.Direction.DESC
     )
     Pageable pageable) {

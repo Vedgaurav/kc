@@ -8,6 +8,5 @@ import java.util.List;
 public class GroupCreateDto {
     private String name;
     private String description;
-    private List<Long> userIds;
 }
 

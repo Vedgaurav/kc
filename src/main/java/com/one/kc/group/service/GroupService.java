@@ -29,28 +29,15 @@ public class GroupService {
         this.userRepository = userRepository;
     }
 
-    public Group createGroup(GroupCreateDto dto, Long facilitatorId) {
+    public Group createGroup(GroupCreateDto dto, Long userId) {
 
-        User facilitator = userRepository.findByUserId(facilitatorId)
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
-        // 🔐 Role enforcement
-        if (facilitator.hasRoleWithEqualOrGreaterPriorityThan(UserRole.FACILITATOR)) {
-            throw new AccessDeniedException("Not allowed to create group");
-        }
 
         Group group = new Group();
         group.setName(dto.getName());
         group.setDescription(dto.getDescription());
-        group.setCreatedBy(facilitator);
-
-        if (dto.getUserIds() != null) {
-            dto.getUserIds().forEach(uid -> {
-                User user = userRepository.findByUserId(uid)
-                        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                group.addMember(user);
-            });
-        }
+        group.setCreatedBy(user);
 
         return groupRepository.save(group);
     }
