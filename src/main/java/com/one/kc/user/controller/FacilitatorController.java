@@ -56,7 +56,7 @@ public class FacilitatorController {
             @PathVariable Long userId,
             @AuthenticationPrincipal Jwt jwt,
             @PageableDefault(
-                    sort = "chantingDate",
+                    sort = "chantingAt",
             direction = Sort.Direction.DESC
     )
     Pageable pageable) {

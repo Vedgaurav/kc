@@ -51,7 +51,7 @@ public class AdminUserController {
             @PageableDefault(
                     page = 0,
                     size = 10,
-                    sort = "chantingDate",
+                    sort = "chantingAt",
                     direction = Sort.Direction.DESC
             )
             Pageable pageable
