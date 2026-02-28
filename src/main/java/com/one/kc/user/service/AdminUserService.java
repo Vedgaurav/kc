@@ -349,6 +349,8 @@ public class AdminUserService {
                 );
     }
 
+
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<PageResponse<UserRoleAuditDto>> getAuditHistory(Pageable pageable) {
        Page<UserRoleAuditDto> userRoleAuditListPage =  userRoleAuditRepository.findAllUserRoleAuditHistory(pageable);
 
