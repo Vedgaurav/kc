@@ -80,6 +80,10 @@ public class ChantingService {
             ChantingDto chantingDto,
             Jwt jwt
     ) {
+
+        if (chantingDto.getChantingAt().isAfter(Instant.now())) {
+            throw new UserFacingException("Future time not allowed");
+        }
         Long userId = Long.parseLong(jwt.getSubject());
 
         User user = userRepository.findById(userId)
@@ -106,6 +110,9 @@ public class ChantingService {
             Jwt jwt
     ) {
 
+        if (chantingDto.getChantingAt().isAfter(Instant.now())) {
+            throw new UserFacingException("Future time not allowed");
+        }
         Long loggedInUserId = Long.parseLong(jwt.getSubject());
         Long chantingId = Long.parseLong(chantingDto.getChantingId());
         Chanting existing = chantingRepository.findById(chantingId)
