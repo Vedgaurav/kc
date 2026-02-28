@@ -3,11 +3,11 @@ package com.one.kc.chanting.service;
 import com.one.kc.chanting.dto.ChantingDashboardResponseDto;
 import com.one.kc.chanting.dto.ChantingDto;
 import com.one.kc.chanting.dto.DashboardDto;
+import com.one.kc.chanting.dto.FacilitatorTodayDto;
 import com.one.kc.chanting.dto.PageResponse;
 import com.one.kc.chanting.entity.Chanting;
 import com.one.kc.chanting.mapper.ChantingMapper;
 import com.one.kc.chanting.repository.ChantingRepository;
-import com.one.kc.common.exceptions.ResourceNotFoundException;
 import com.one.kc.common.exceptions.UserFacingException;
 import com.one.kc.common.utils.LoggerUtils;
 import com.one.kc.common.utils.ResponseEntityUtils;
@@ -26,11 +26,15 @@ import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -64,7 +68,7 @@ public class ChantingService {
      * Creates a new chanting record.
      *
      * <p>
-     * - Generates a unique chanting ID using Snowflake
+     * - Generates a unique chanting ID
      * - Maps DTO to entity
      * - Persists the record
      * </p>
@@ -77,82 +81,54 @@ public class ChantingService {
             Jwt jwt
     ) {
         Long userId = Long.parseLong(jwt.getSubject());
-        LocalDate date = chantingDto.getChantingDate();
-        int newRounds = chantingDto.getChantingRounds();
 
-        Chanting chanting = chantingRepository.findByUserIdAndChantingDate(userId, date)
-                .map(existing -> {
-                    existing.setChantingRounds(existing.getChantingRounds() + newRounds);
-                    return existing;
-                })
-                .orElseGet(() -> {
-                    Chanting newRecord = chantingMapper.toEntity(chantingDto);
-                    newRecord.setChantingId(idGenerator.nextId());
-                    newRecord.setUserId(userId);
-                    return newRecord;
-                });
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserFacingException("User not found"));
+
+        Chanting chanting = new Chanting();
+        chanting.setUser(user);
+        chanting.setChantingRounds(chantingDto.getChantingRounds());
+        chanting.setChantingAt(chantingDto.getChantingAt());
 
         Chanting saved = chantingRepository.save(chanting);
 
-        LoggerUtils.info(logger, "Chanting record updated/created for on date: {}", date);
+        LoggerUtils.info(logger,
+                "Chanting record created at {}", chantingDto.getChantingAt());
 
-        return ResponseEntityUtils.getCreatedResponse(chantingMapper.toDto(saved));
+        return ResponseEntityUtils.getCreatedResponse(
+                chantingMapper.toDto(saved)
+        );
     }
 
-    /**
-     * Updates an existing chanting record.
-     *
-     * <p>
-     * Performs partial update using MapStruct.
-     * </p>
-     *
-     * @param jwt  auth filter
-     * @param chantingDto updated details
-     * @return updated {@link ChantingDto}
-     */
     @Transactional
     public ResponseEntity<ChantingDto> updateChanting(
-           Jwt jwt,
-            ChantingDto chantingDto
+            ChantingDto chantingDto,
+            Jwt jwt
     ) {
-        Long userId = Long.parseLong(jwt.getSubject());
-        LocalDate date = chantingDto.getChantingDate();
-        LocalDate currentDate = LocalDate.now();
-        if(currentDate.minusDays(5).isAfter(date)) {
-            throw new UserFacingException("Update Not allowed for date " + date);
+
+        Long loggedInUserId = Long.parseLong(jwt.getSubject());
+        Long chantingId = Long.parseLong(chantingDto.getChantingId());
+        Chanting existing = chantingRepository.findById(chantingId)
+                .orElseThrow(() -> new UserFacingException("Chanting not found"));
+
+        // 🔒 SECURITY CHECK
+        if (!existing.getUser().getUserId().equals(loggedInUserId)) {
+            throw new UserFacingException("You are not allowed to update this record");
         }
-        int newRounds = chantingDto.getChantingRounds();
 
+        Instant cutoff = Instant.now().minus(5, ChronoUnit.DAYS);
 
-        Chanting existing = chantingRepository.findByUserIdAndChantingDate(userId, date)
-                .map(existingChanting -> {
-                    existingChanting.setChantingRounds(newRounds);
-                    return  existingChanting;
-                })
-                .orElseThrow(() ->  new UserFacingException("Chanting not found"));
+        if (existing.getChantingAt().isBefore(cutoff)) {
+            throw new UserFacingException("Update not allowed for old record");
+        }
+
+        existing.setChantingRounds(chantingDto.getChantingRounds());
+        existing.setChantingAt(chantingDto.getChantingAt());
 
         Chanting updated = chantingRepository.save(existing);
 
-        LoggerUtils.info(logger,
-                "Chanting record updated with id: {}", updated.getChantingRounds());
-
         return ResponseEntity.ok(chantingMapper.toDto(updated));
     }
-
-//    /**
-//     * Retrieves a chanting record by ID.
-//     *
-//     * @param chantingId chanting identifier
-//     * @return {@link ChantingDto}
-//     */
-//    public ResponseEntity<ChantingDto> getChantingById(Long chantingId) {
-//
-//        Chanting chanting = chantingRepository.findById(chantingId)
-//                .orElseThrow(() -> new ResourceNotFoundException(
-//                        "Chanting not found with id: " + chantingId));
-//
-//        return ResponseEntity.ok(chantingMapper.toDto(chanting));
-//    }
 
     /**
      * Retrieves  chanting records by user email.
@@ -165,7 +141,7 @@ public class ChantingService {
             Pageable pageable
     ) {
 
-        Page<Chanting> chantingListPage = chantingRepository.findByUserId(userId, pageable);
+        Page<Chanting> chantingListPage = chantingRepository.findByUser_UserId(userId, pageable);
 
         List<ChantingDto> chantingDtoList = chantingListPage.getContent().stream().map(chantingMapper::toDto).toList();
 
@@ -187,10 +163,17 @@ public class ChantingService {
         Chanting chanting = chantingRepository.findById(chantingId).orElseThrow(
                 () -> new UserFacingException("Chanting not found ")
         );
-        LocalDate currentDate = LocalDate.now();
-        if(currentDate.minusDays(5).isAfter(chanting.getChantingDate())) {
-            throw new UserFacingException("Update Not allowed for date " + chanting.getChantingDate());
+
+        Instant date = chanting.getChantingAt();
+
+        Instant cutoff = Instant.now().minus(5, ChronoUnit.DAYS);
+
+        if (date.isBefore(cutoff)) {
+            throw new UserFacingException(
+                    "Update not allowed for date " + date
+            );
         }
+
 
         chantingRepository.deleteById(chantingId);
 
@@ -207,79 +190,93 @@ public class ChantingService {
     ) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserFacingException("User not found"));
+
+        ZoneId zone = ZoneId.systemDefault(); // Ideally user-specific timezone
 
         // Resolve end date
         LocalDate to = Objects.requireNonNullElseGet(toDate, LocalDate::now);
 
         // Resolve start date
-        LocalDate from;
-            // "All" → start from earliest real chanting date
-        // user has no data
-        from = Objects.requireNonNullElseGet(fromDate, () -> chantingRepository
-                .findMinChantingDateByUserId(userId)
-                .orElse(to));
+        LocalDate from = fromDate;
+
+        if (from == null) {
+            Optional<Instant> minInstantOpt =
+                    chantingRepository.findMinChantingAtByUserId(userId);
+
+            from = minInstantOpt
+                    .map(instant -> instant.atZone(zone).toLocalDate())
+                    .orElse(to);
+        }
 
         // Safety guard
         if (from.isAfter(to)) {
             from = to;
         }
 
-        // Fetch chanting records (uses idx_chanting_user_date)
-        List<Chanting> chantingList =
-                chantingRepository.findByUserIdAndChantingDateBetweenOrderByChantingDateAsc(
-                        userId, from, to
-                );
+        // Convert LocalDate range → Instant range
+        Instant fromInstant = from.atStartOfDay(zone).toInstant();
+        Instant toInstant = to.plusDays(1).atStartOfDay(zone).toInstant();
 
-      int totalRounds = chantingList.stream()
+        // Fetch chanting records
+        List<Chanting> chantingList =
+                chantingRepository
+                        .findByUser_UserIdAndChantingAtBetweenOrderByChantingAtAsc(
+                                userId,
+                                fromInstant,
+                                toInstant
+                        );
+
+        int totalRounds = chantingList.stream()
                 .mapToInt(Chanting::getChantingRounds)
                 .sum();
 
         // Build full time series
         List<DashboardDto> chantingRecords =
-                buildTimeSeries(chantingList, from, to);
+                buildTimeSeries(chantingList, from, to, zone);
 
-
-
-        return  ChantingDashboardResponseDto.builder()
-                        .committedRounds( user.getCommittedRounds())
+        return ChantingDashboardResponseDto.builder()
+                .committedRounds(user.getCommittedRounds())
                 .idealRounds(IDEAL_ROUNDS)
-                .currentStreak(calculateStreak(chantingRecords, user.getCommittedRounds()))
+                .currentStreak(
+                        calculateStreak(chantingRecords, user.getCommittedRounds(), zone)
+                )
                 .averageRounds(calculateAverage(chantingRecords))
                 .chantingDtoList(chantingRecords)
                 .totalRounds(totalRounds)
                 .totalMahamantras(totalRounds * BEADS_IN_ONE_ROUND)
                 .build();
-
     }
-
 
     private List<DashboardDto> buildTimeSeries(
             List<Chanting> chantingList,
             LocalDate from,
-            LocalDate to
+            LocalDate to,
+            ZoneId zone
     ) {
-        // Map existing DB records by date
-        Map<LocalDate, Chanting> chantingMap = chantingList.stream()
-                .collect(Collectors.toMap(
-                        Chanting::getChantingDate,
-                        Function.identity()
-                ));
+
+        Map<LocalDate, Integer> dailyTotals =
+                chantingList.stream()
+                        .collect(Collectors.groupingBy(
+                                chanting -> chanting.getChantingAt()
+                                        .atZone(zone)
+                                        .toLocalDate(),
+                                Collectors.summingInt(Chanting::getChantingRounds)
+                        ));
 
         List<DashboardDto> result = new ArrayList<>();
 
         LocalDate current = from;
+
         while (!current.isAfter(to)) {
 
-            Chanting chanting = chantingMap.get(current);
-
-            DashboardDto dashboardDto = new DashboardDto();
-            dashboardDto.setChantingDate(current);
-            dashboardDto.setChantingRounds(
-                    chanting != null ? chanting.getChantingRounds() : 0
+            DashboardDto dto = new DashboardDto();
+            dto.setChantingDate(current);
+            dto.setChantingRounds(
+                    dailyTotals.getOrDefault(current, 0)
             );
 
-            result.add(dashboardDto);
+            result.add(dto);
             current = current.plusDays(1);
         }
 
@@ -303,22 +300,24 @@ public class ChantingService {
                 RoundingMode.HALF_UP
         );
     }
+
     private Integer calculateStreak(
             List<DashboardDto> records,
-            Integer committedRounds
+            Integer committedRounds,
+            ZoneId zone
     ) {
+
         if (CollectionUtils.isEmpty(records)) {
             return 0;
         }
 
         int streak = 0;
-        LocalDate expectedDate = LocalDate.now();
+        LocalDate expectedDate = LocalDate.now(zone);
 
-        // Walk backwards through the time series
         for (int i = records.size() - 1; i >= 0; i--) {
+
             DashboardDto dto = records.get(i);
 
-            // This condition is safe guard if data is not continuous
             if (streak == 0 &&
                     !dto.getChantingDate().equals(expectedDate) &&
                     !dto.getChantingDate().equals(expectedDate.minusDays(1))) {
@@ -341,6 +340,34 @@ public class ChantingService {
         return streak;
     }
 
+    public ResponseEntity<Page<FacilitatorTodayDto>>getFacilitatorGroupChantingToday(Jwt jwt, Pageable pageable) {
 
+        Long userId = Long.parseLong(jwt.getSubject());
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserFacingException("User not found"));
+
+        if (user.getFacilitator() == null) {
+            throw new UserFacingException("User has no facilitator");
+        }
+
+        Long facilitatorId = user.getFacilitator().getUserId();
+
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate today = LocalDate.now(zone);
+
+        Instant start = today.atStartOfDay(zone).toInstant();
+        Instant end = today.plusDays(1).atStartOfDay(zone).toInstant();
+
+        Page<FacilitatorTodayDto> result =
+                chantingRepository.findFacilitatorUsersTodayChanting(
+                        facilitatorId,
+                        start,
+                        end,
+                        pageable
+                );
+
+        return ResponseEntity.ok(result);
+    }
 }
 

@@ -1,6 +1,8 @@
 package com.one.kc.user.service;
 
 import com.one.kc.auth.utils.JwtUtil;
+import com.one.kc.common.constants.GroupConstants;
+import com.one.kc.common.enums.Gender;
 import com.one.kc.common.enums.UserRole;
 import com.one.kc.common.enums.UserStatus;
 import com.one.kc.common.exceptions.ResourceAlreadyExistsException;
@@ -9,6 +11,9 @@ import com.one.kc.common.exceptions.UserFacingException;
 import com.one.kc.common.utils.LoggerUtils;
 import com.one.kc.common.utils.PhoneNumberUtils;
 import com.one.kc.common.utils.SnowflakeIdGenerator;
+import com.one.kc.group.entity.Group;
+import com.one.kc.group.entity.GroupMember;
+import com.one.kc.group.repository.GroupRepository;
 import com.one.kc.user.dto.FacilitatorListDto;
 import com.one.kc.user.dto.UserDto;
 import com.one.kc.user.entity.User;
@@ -39,16 +44,19 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final SnowflakeIdGenerator idGenerator;
+    private final GroupRepository groupRepository;
 
 
     public UserService(
             UserRepository userRepository,
             UserMapper userMapper,
-            SnowflakeIdGenerator idGenerator
+            SnowflakeIdGenerator idGenerator,
+            GroupRepository groupRepository
     ) {
         this.userRepository = userRepository;
         this.userMapper = userMapper;
         this.idGenerator = idGenerator;
+        this.groupRepository = groupRepository;
     }
 
     /**
@@ -70,6 +78,7 @@ public class UserService {
 
         User user = prepareUser(userDto);
 
+        // ensureGenderGroupMembership(user, userDto.getGender());
         User saved = userRepository.save(user);
 
         LoggerUtils.info(logger, "User created: {}", saved.getEmail());
@@ -98,6 +107,7 @@ public class UserService {
         user.setAddBy(userId);
         user.setChgBy(userId);
         user.addRole(UserRole.USER);
+        user.setStatus(UserStatus.INACTIVE);
 
         if (StringUtils.isNotBlank(userDto.getPhoneNumber())) {
             user.setPhoneNumber(
@@ -153,10 +163,15 @@ public class UserService {
             existingUser.addRole(UserRole.USER);
         }
 
-        if(StringUtils.isNotBlank(userDto.getPhoneNumber()) && StringUtils.isNotBlank(userDto.getCountryCode())) {
+        // ✅ 1️⃣ Ensure gender + root group FIRST
+        if (Objects.nonNull(userDto.getGender())) {
+            ensureGenderGroupMembership(existingUser, userDto.getGender());
+        }
+
+        if (StringUtils.isNotBlank(userDto.getPhoneNumber()) && StringUtils.isNotBlank(userDto.getCountryCode())) {
             String e164PhoneNumber = PhoneNumberUtils.toE164(userDto.getCountryCode(), userDto.getPhoneNumber());
             existingUser.setPhoneNumber(e164PhoneNumber);
-            if(existingUser.getStatus() ==  UserStatus.INACTIVE) {
+            if (existingUser.getStatus() == UserStatus.INACTIVE) {
                 existingUser.setStatus(UserStatus.ACTIVE);
             }
         }
@@ -165,7 +180,7 @@ public class UserService {
         if (StringUtils.isNotBlank(userDto.getFacilitatorId())) {
             Long facilitatorId = Long.parseLong(userDto.getFacilitatorId());
             // Skip if same facilitator
-            if ((Objects.isNull(existingUser.getFacilitator() )
+            if ((Objects.isNull(existingUser.getFacilitator())
                     || !existingUser.getFacilitator()
                     .getUserId()
                     .equals(facilitatorId)) && !facilitatorId.equals(existingUser.getUserId())) {
@@ -175,10 +190,19 @@ public class UserService {
                                 new ResourceNotFoundException("Facilitator not found")
                         );
 
+                Group userRoot = getRootGroup(existingUser);
+                Group facilitatorRoot = getRootGroup(facilitator);
+
+                if (!userRoot.equals(facilitatorRoot)) {
+                    throw new UserFacingException(
+                            "Facilitator must belong to same gender group"
+                    );
+                }
+
+
                 existingUser.setFacilitator(facilitator);
             }
         } else {
-            // Optional: allow removal
             existingUser.setFacilitator(null);
         }
 
@@ -190,6 +214,17 @@ public class UserService {
         LoggerUtils.info(logger, "User Updated ");
 
         return ResponseEntity.ok(userDtoResponse);
+    }
+
+    private Group getRootGroup(User user) {
+
+        return user.getGroupMemberships().stream()
+                .map(GroupMember::getGroup)
+                .filter(group -> group.getParent() == null)
+                .findFirst()
+                .orElseThrow(() ->
+                        new IllegalStateException("User does not belong to any root group")
+                );
     }
 
     /**
@@ -215,7 +250,10 @@ public class UserService {
         return ResponseEntity.ok(dto);
     }
 
-    private void enrichFacilitator(UserDto dto, User user) {
+    private void enrichFacilitator(
+            UserDto dto,
+            User user
+    ) {
         if (user.getFacilitator() != null) {
             User f = user.getFacilitator();
             dto.setFacilitatorId(String.valueOf(f.getUserId()));
@@ -230,7 +268,7 @@ public class UserService {
             User user,
             UserDto userDto
     ) {
-        if(StringUtils.isNotBlank(userDto.getPhoneNumber())) {
+        if (StringUtils.isNotBlank(userDto.getPhoneNumber())) {
             PhoneNumberUtils.PhoneParts phoneParts = PhoneNumberUtils.fromE164(user.getPhoneNumber());
             userDto.setCountryCode(phoneParts.countryCode());
             userDto.setPhoneNumber(phoneParts.phoneNumber());
@@ -326,9 +364,71 @@ public class UserService {
             userDto.setFirstName(jwt.getClaimAsString("firstName"));
             userDto.setLastName(jwt.getClaimAsString("lastName"));
             userDto.setRoles(jwt.getClaimAsStringList("roles"));
+            userDto.setStatus(UserStatus.valueOf(jwt.getClaimAsString("status")));
 
             return ResponseEntity.ok(userDto);
         }
         throw new UserFacingException("Unauthorized User");
+    }
+
+    private Group getRootGroupForGender(Gender gender) {
+        String groupName = switch (gender) {
+            case MALE -> GroupConstants.MALE_ROOT;
+            case FEMALE -> GroupConstants.FEMALE_ROOT;
+            case OTHER -> GroupConstants.OTHER_ROOT;
+        };
+
+        return groupRepository.findByName(groupName)
+                .orElseThrow(() ->
+                        new IllegalStateException("Root group missing: " + groupName)
+                );
+    }
+    private void ensureGenderGroupMembership(User user, Gender gender) {
+
+        if (gender == null) {
+            throw new UserFacingException("Gender is required");
+        }
+
+        // 🚫 If gender already set → block change
+        if (user.getGender() != null && !user.getGender().equals(gender)) {
+            throw new UserFacingException(
+                    "Gender cannot be changed once set."
+            );
+        }
+
+        Group targetRootGroup = groupRepository
+                .findByName(getRootGroupName(gender))
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "Root group missing for gender: " + gender
+                        )
+                );
+
+        // ✅ First-time setup only
+        if (user.getRootGroup() == null) {
+            user.setGender(gender);
+            user.setRootGroup(targetRootGroup);
+            // Ensure exactly ONE root membership exists
+
+            boolean exists = user.getGroupMemberships().stream()
+                    .anyMatch(m -> m.getGroup().equals(targetRootGroup));
+
+            if (!exists) {
+                GroupMember membership = GroupMember.builder()
+                        .group(targetRootGroup)
+                        .user(user)
+                        .build();
+
+                user.getGroupMemberships().add(membership);
+            }
+        }
+    }
+
+    private String getRootGroupName(Gender gender) {
+        return switch (gender) {
+            case MALE -> GroupConstants.MALE_ROOT;
+            case FEMALE -> GroupConstants.FEMALE_ROOT;
+            case OTHER -> GroupConstants.OTHER_ROOT;
+        };
     }
 }

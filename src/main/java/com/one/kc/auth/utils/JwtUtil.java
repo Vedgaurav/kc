@@ -49,6 +49,7 @@ public class JwtUtil {
                 .claim("roles", UserUtils.extractRoles(user))
                 .claim("type", "access")
                 .claim("aud", "one-kc-web")
+                .claim("status", user.getStatus())
                 .build();
 
         return jwtEncoder.encode(

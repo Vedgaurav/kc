@@ -27,6 +27,7 @@ public class UserRoleEntity {
     @Column(nullable = false)
     private UserRole role;
 
+    @EqualsAndHashCode.Include
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;

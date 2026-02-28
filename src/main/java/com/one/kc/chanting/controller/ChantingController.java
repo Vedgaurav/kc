@@ -3,8 +3,10 @@ package com.one.kc.chanting.controller;
 import com.one.kc.auth.utils.JwtUtil;
 import com.one.kc.chanting.dto.ChantingDashboardResponseDto;
 import com.one.kc.chanting.dto.ChantingDto;
+import com.one.kc.chanting.dto.FacilitatorTodayDto;
 import com.one.kc.chanting.dto.PageResponse;
 import com.one.kc.chanting.service.ChantingService;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -14,6 +16,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * REST controller for managing Chanting records.
@@ -67,19 +70,9 @@ public class ChantingController {
             @AuthenticationPrincipal Jwt jwt,
             @RequestBody ChantingDto chantingDto
     ) {
-        return chantingService.updateChanting(jwt, chantingDto);
-    }
 
-//    /**
-//     * Retrieves a chanting record by ID.
-//     *
-//     * @param chantingId unique identifier of the chanting record
-//     * @return {@link ChantingDto} for the requested chanting record
-//     */
-//    @GetMapping("/{chantingId}")
-//    public ResponseEntity<ChantingDto> getChantingById(@PathVariable Long chantingId) {
-//        return chantingService.getChantingById(chantingId);
-//    }
+        return chantingService.updateChanting(chantingDto, jwt);
+    }
 
     /**
      * Retrieves all chanting records by ID.
@@ -92,13 +85,27 @@ public class ChantingController {
             @PageableDefault(
                     page = 0,
                     size = 10,
-                    sort = "chantingDate",
+                    sort = "chantingAt",
                     direction = Sort.Direction.DESC
             )
             Pageable pageable
     ) {
         Long userId = JwtUtil.getUserId(jwt);
         return chantingService.getChantingListByUserId(userId, pageable);
+    }
+
+    /**
+     * Retrieves all chanting records by facilitator group.
+     *
+     * @return {@link ChantingDto} for the requested chanting record
+     */
+    @GetMapping("/today")
+    public ResponseEntity<Page<FacilitatorTodayDto>> getFacilitatorGroupChantingToday(
+            @AuthenticationPrincipal Jwt jwt,
+            @PageableDefault(size = 50, page = 0)
+            Pageable pageable
+    ) {
+        return chantingService.getFacilitatorGroupChantingToday(jwt, pageable);
     }
 
     /**

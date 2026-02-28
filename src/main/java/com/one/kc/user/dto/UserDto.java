@@ -1,5 +1,6 @@
 package com.one.kc.user.dto;
 
+import com.one.kc.common.enums.Gender;
 import com.one.kc.common.enums.UserStatus;
 import com.one.kc.user.entity.User;
 import lombok.AllArgsConstructor;
@@ -20,6 +21,7 @@ public class UserDto {
     private String phoneNumber;
     private String firstName;
     private String lastName;
+    private Gender gender;
     private LocalDateTime addTime;
     private LocalDateTime chgTime;
     private String addBy;

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Data
@@ -13,6 +14,6 @@ import java.time.LocalDate;
 public class ChantingDto {
     private String chantingId;
     private Integer chantingRounds;
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate chantingDate;
+    @JsonFormat(shape = JsonFormat.Shape.STRING)
+    private Instant chantingAt;
 }

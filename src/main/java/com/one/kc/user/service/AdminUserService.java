@@ -46,23 +46,49 @@ public class AdminUserService {
 
     @Transactional(readOnly = true)
     public ResponseEntity<PageResponse<AdminUserListDto>> getUsers(
+            Long adminId,
             String search,
             Pageable pageable
     ) {
-        Page<User> userPage = null;
-        if (StringUtils.isBlank(search)) {
-            userPage = userRepository.findUsersWithRolesWithoutSearch(
-                    pageable
-            );
+
+        User admin = userRepository.findByUserIdWithFacilitator(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean isSuperAdmin = admin.hasRole(UserRole.SUPER_ADMIN);
+
+        Page<User> userPage;
+
+        if (isSuperAdmin) {
+
+            // 🔥 SUPER_ADMIN → No tenant restriction
+            if (StringUtils.isBlank(search)) {
+                userPage = userRepository.findAllWithRoles(pageable);
+            } else {
+                userPage = userRepository.findAllWithRolesAndSearch(
+                        search.trim(),
+                        pageable
+                );
+            }
+
         } else {
-            userPage = userRepository.findUsersWithRolesWithSearch(
-                    search.trim(),
-                    pageable
-            );
+
+            // 🔒 ADMIN → Restrict to same rootGroup
+            if (StringUtils.isBlank(search)) {
+                userPage = userRepository.findUsersInSameRootGroup(
+                        adminId,
+                        pageable
+                );
+            } else {
+                userPage = userRepository.findUsersInSameRootGroupWithSearch(
+                        adminId,
+                        search.trim(),
+                        pageable
+                );
+            }
         }
 
         List<AdminUserListDto> adminUserListDtoList =
-                userPage.get()
+                userPage.stream()
                         .map(user ->
                                 AdminUserListDto.builder()
                                         .userId(String.valueOf(user.getUserId()))
@@ -73,7 +99,8 @@ public class AdminUserService {
                                         .isAdmin(isAdmin(user))
                                         .isFacilitator(isFacilitator(user))
                                         .build()
-                        ).toList();
+                        )
+                        .toList();
 
         return ResponseEntityUtils.getPaginatedResponse(userPage, adminUserListDtoList);
     }
@@ -93,53 +120,77 @@ public class AdminUserService {
             Long adminUserId
     ) {
 
-        List<Long> userIds = userIdsString.stream().map(Long::parseLong).toList();
+        List<Long> userIds = userIdsString.stream()
+                .map(Long::parseLong)
+                .toList();
 
-        //Prevent admin from modifying self
+        // Prevent admin from modifying self
         preventSelfModification(userIds, adminUserId);
 
+        // 🔥 Fetch admin with rootGroup
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
+
+        Long adminRootGroupId = admin.getRootGroup().getGroupId();
+
+        // 🔥 Fetch all target users in one query
+        List<User> users = userRepository.findAllById(userIds);
+
+        if (users.size() != userIds.size()) {
+            throw new ResourceNotFoundException("One or more users not found");
+        }
+
+        // 🔥 ROOT GROUP VALIDATION
+        for (User user : users) {
+            if (!user.getRootGroup().getGroupId().equals(adminRootGroupId)) {
+                throw new IllegalStateException(
+                        "Cannot assign facilitator role to user outside your root group"
+                );
+            }
+        }
+
         // Users who already have role
-        List<Long> alreadyHaveRole = findUserIdsWithRole(userIds, UserRole.FACILITATOR);
+        List<Long> alreadyHaveRole =
+                findUserIdsWithRole(userIds);
 
         Set<Long> existing = new HashSet<>(alreadyHaveRole);
 
         List<User> userRoleAssignedList = new ArrayList<>();
         List<UserRoleAudit> userRoleAuditList = new ArrayList<>();
-        for (Long userId : userIds) {
 
-            if (existing.contains(userId)) {
+        for (User user : users) {
+
+            if (existing.contains(user.getUserId())) {
                 continue;
             }
-
-            User user = findUser(userId);
 
             // Ensure base role
             user.addRole(UserRole.USER);
 
             // Add FACILITATOR role
             user.addRole(UserRole.FACILITATOR);
+
             userRoleAssignedList.add(user);
 
             userRoleAuditList.add(
                     UserRoleAudit.builder()
-                            .targetUserId(userId)
+                            .targetUserId(user.getUserId())
                             .actorUserId(adminUserId)
                             .role(UserRole.FACILITATOR)
                             .action(RoleAuditAction.ASSIGNED)
                             .build()
             );
-
         }
+
         userRepository.saveAll(userRoleAssignedList);
         userRoleAuditRepository.saveAll(userRoleAuditList);
     }
 
     private List<Long> findUserIdsWithRole(
-            List<Long> userIds,
-            UserRole role
+            List<Long> userIds
     ) {
         return userRoleRepository.findUserIdsWithRole(
-                role,
+                UserRole.FACILITATOR,
                 userIds
         );
     }
@@ -150,18 +201,44 @@ public class AdminUserService {
             List<String> userIdsString,
             Long adminUserId
     ) {
+
         List<Long> userIds = userIdsString.stream()
                 .map(Long::parseLong)
                 .toList();
 
         preventSelfModification(userIds, adminUserId);
 
-        List<Long> userIdsWithRole = findUserIdsWithRole(userIds, UserRole.FACILITATOR);
+        // 🔥 Fetch admin
+        User admin = userRepository.findById(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found"));
 
+        Long adminRootGroupId = admin.getRootGroup().getGroupId();
+
+        // 🔥 Validate users belong to same root group (DB level)
+        List<User> validUsers =
+                userRepository.findAllByIdsAndRootGroup(userIds, adminRootGroupId);
+
+        if (validUsers.size() != userIds.size()) {
+            throw new IllegalStateException(
+                    "Cannot remove facilitator role from users outside your root group"
+            );
+        }
+
+        // 🔥 Get only those users who actually have FACILITATOR role
+        List<Long> userIdsWithRole =
+                findUserIdsWithRole(userIds);
+
+        if (userIdsWithRole.isEmpty()) {
+            return; // nothing to remove
+        }
+
+        // 🔥 Remove role
         userRoleRepository.deleteByRoleAndUser_UserIdIn(
                 UserRole.FACILITATOR,
                 userIdsWithRole
         );
+
+        // 🔥 Audit entries
         List<UserRoleAudit> userRoleAuditList = userIdsWithRole.stream()
                 .map(userId ->
                         UserRoleAudit.builder()
@@ -172,8 +249,8 @@ public class AdminUserService {
                                 .build()
                 )
                 .toList();
-        userRoleAuditRepository.saveAll(userRoleAuditList);
 
+        userRoleAuditRepository.saveAll(userRoleAuditList);
     }
 
     @Transactional
@@ -233,7 +310,7 @@ public class AdminUserService {
                 .toList();
 
         preventSelfModification(userIds, superAdminUserId);
-        List<Long> userIdsWithRole = findUserIdsWithRole(userIds, UserRole.FACILITATOR);
+        List<Long> userIdsWithRole = findUserIdsWithRole(userIds);
 
         userRoleRepository.deleteByRoleAndUser_UserIdIn(
                 UserRole.ADMIN,
